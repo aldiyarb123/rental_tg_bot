@@ -759,37 +759,45 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             total_orders = 0
             total_net = 0.0
-            drivers = {}
+            driver_net = {}
+            driver_done = {}
+
+            try:
+                directory = load_driver_directory()
+            except Exception:
+                directory = {}
 
             with requests.Session() as session:
                 for i in range(10):
                     d = start_date + timedelta(days=i)
                     time_from, time_to, from_dt, to_dt = dubai_day_range(d)
                     orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-
-                    try:
-                        directory = load_driver_directory()
-                    except Exception:
-                        directory = {}
-
                     rows, agg = build_report_rows(str(d), orders, directory)
-
                     for a in agg.values():
                         total_orders += a.done
                         total_net += a.net
-
-                        if a.fio not in drivers:
-                            drivers[a.fio] = 0
-                        drivers[a.fio] += a.net
+                        driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+                        driver_done[a.fio] = driver_done.get(a.fio, 0) + a.done
 
             park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+            avg_check = total_net / total_orders if total_orders else 0
 
+            sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
+            top5 = sorted_drivers[:5]
+            worst5 = sorted_drivers[-5:][::-1]
+            top_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in top5)
+            worst_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in worst5)
+
+            date_range = f"{start_date} – {end_date}"
             text = (
-                f"📅 <b>Отчёт за 10 дней</b>\n\n"
+                f"📅 <b>Отчёт за 10 дней ({date_range})</b>\n\n"
                 f"✅ Заказов: <b>{total_orders}</b>\n"
-                f"💰 Выручка: <b>{total_net:.2f}</b>\n"
-                f"🏦 Доход таксопарка: <b>{park_income:.2f}</b>\n"
-                f"👤 Водителей: <b>{len(drivers)}</b>\n"
+                f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
+                f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
+                f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
+                f"👤 Водителей: <b>{len(driver_net)}</b>\n\n"
+                f"🏆 <b>ТОП-5 водителей</b>\n{top_lines}\n\n"
+                f"📉 <b>Худшие 5</b>\n{worst_lines}"
             )
 
             await context.bot.send_message(
@@ -909,29 +917,49 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⏳ Считаю отчёт за 10 дней...")
             total_orders = 0
             total_net = 0.0
-            drivers = {}
+            driver_net = {}   # fio -> total net
+            driver_done = {}  # fio -> total orders
             start_date = now_dubai - timedelta(days=9)
+            end_date = now_dubai - timedelta(days=0)
+            try:
+                directory = load_driver_directory()
+            except Exception:
+                directory = {}
             with requests.Session() as session:
                 for i in range(10):
                     d = start_date + timedelta(days=i)
                     time_from, time_to, from_dt, to_dt = dubai_day_range(d)
                     orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-                    try:
-                        directory = load_driver_directory()
-                    except Exception:
-                        directory = {}
                     rows, agg = build_report_rows(str(d), orders, directory)
                     for a in agg.values():
                         total_orders += a.done
                         total_net += a.net
-                        drivers[a.fio] = drivers.get(a.fio, 0) + a.net
+                        driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+                        driver_done[a.fio] = driver_done.get(a.fio, 0) + a.done
             park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
-            await update.message.reply_text(
-                f"📅 <b>Отчёт за 10 дней</b>\n\n"
+            avg_check = total_net / total_orders if total_orders else 0
+
+            # ТОП-5 и худшие 5
+            sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
+            top5 = sorted_drivers[:5]
+            worst5 = sorted_drivers[-5:][::-1]
+
+            top_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in top5)
+            worst_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in worst5)
+
+            date_range = f"{start_date} – {end_date}"
+            msg = (
+                f"📅 <b>Отчёт за 10 дней ({date_range})</b>\n\n"
                 f"✅ Заказов: <b>{total_orders}</b>\n"
-                f"💰 Выручка: <b>{total_net:.2f}</b>\n"
-                f"🏦 Доход таксопарка: <b>{park_income:.2f}</b>\n"
-                f"👤 Водителей: <b>{len(drivers)}</b>",
+                f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
+                f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
+                f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
+                f"👤 Водителей: <b>{len(driver_net)}</b>\n\n"
+                f"🏆 <b>ТОП-5 водителей</b>\n{top_lines}\n\n"
+                f"📉 <b>Худшие 5</b>\n{worst_lines}"
+            )
+            await update.message.reply_text(
+                msg,
                 parse_mode=ParseMode.HTML,
                 reply_markup=MAIN_KEYBOARD,
             )
