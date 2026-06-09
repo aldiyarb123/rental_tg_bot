@@ -1,0 +1,7 @@
+.env
+service_account.json
+*.csv
+venv/
+__pycache__/
+*.log
+nohup.out
