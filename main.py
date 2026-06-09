@@ -75,7 +75,14 @@ GS_SCOPES = [
 ]
 
 def gs_client():
-    creds = Credentials.from_service_account_file(GOOGLE_SA_JSON, scopes=GS_SCOPES)
+    # Если GOOGLE_SA_JSON содержит JSON-строку (Railway) — парсим напрямую
+    # Если это путь к файлу (локально) — читаем файл
+    sa_value = GOOGLE_SA_JSON.strip()
+    if sa_value.startswith("{"):
+        info = json.loads(sa_value)
+        creds = Credentials.from_service_account_info(info, scopes=GS_SCOPES)
+    else:
+        creds = Credentials.from_service_account_file(sa_value, scopes=GS_SCOPES)
     return gspread.authorize(creds)
 
 def gs_get_or_create_ws(sh, title: str, rows: int = 2000, cols: int = 20):
