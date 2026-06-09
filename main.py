@@ -834,6 +834,71 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Δ Сумма: <b>{(net_t - net_y):.2f}</b>\n"
             )
             await context.bot.send_message(chat_id=chat_id, text=text, parse_mode=ParseMode.HTML)
+        elif q.data == "rep:month":
+            # Показываем кнопки выбора месяца
+            now = datetime.now(DUBAI_TZ)
+            buttons = []
+            row = []
+            for i in range(5, -1, -1):  # последние 6 месяцев
+                dt = (now.replace(day=1) - timedelta(days=1)) if i > 0 else now
+                # вычисляем месяц назад
+                month_dt = now.date().replace(day=1)
+                for _ in range(i):
+                    month_dt = (month_dt - timedelta(days=1)).replace(day=1)
+                label = month_dt.strftime("%B %Y")
+                cb = f"month:{month_dt.strftime('%Y-%m')}"
+                row.append(InlineKeyboardButton(label, callback_data=cb))
+                if len(row) == 2:
+                    buttons.append(row)
+                    row = []
+            if row:
+                buttons.append(row)
+            kb = InlineKeyboardMarkup(buttons)
+            await q.edit_message_text("Выбери месяц:", reply_markup=kb)
+
+        elif q.data.startswith("month:"):
+            year_month = q.data.split(":")[1]
+            year, month = int(year_month.split("-")[0]), int(year_month.split("-")[1])
+            import calendar
+            month_start = now_dubai.replace(year=year, month=month, day=1)
+            last_day = calendar.monthrange(year, month)[1]
+            month_end = month_start.replace(day=last_day)
+            # не уходим в будущее
+            if month_end > now_dubai:
+                month_end = now_dubai
+            total_days = (month_end - month_start).days + 1
+            month_name = month_start.strftime("%B %Y")
+            await q.edit_message_text(f"⏳ Считаю отчёт за {month_name}...")
+            total_orders = 0
+            total_net = 0.0
+            driver_net = {}
+            try:
+                directory = load_driver_directory()
+            except Exception:
+                directory = {}
+            with requests.Session() as session:
+                for i in range(total_days):
+                    d = month_start + timedelta(days=i)
+                    time_from, time_to, from_dt, to_dt = dubai_day_range(d)
+                    orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
+                    rows, agg = build_report_rows(str(d), orders, directory)
+                    for a in agg.values():
+                        total_orders += a.done
+                        total_net += a.net
+                        driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+            park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+            avg_check = total_net / total_orders if total_orders else 0
+            summary = (
+                f"📆 <b>Отчёт за {month_name}</b>\n\n"
+                f"✅ Заказов: <b>{total_orders}</b>\n"
+                f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
+                f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
+                f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
+                f"👤 Водителей: <b>{len(driver_net)}</b>"
+            )
+            await context.bot.send_message(chat_id=chat_id, text=summary, parse_mode=ParseMode.HTML)
+            await send_all_drivers(context.bot, chat_id, driver_net, f"Все водители за {month_name}", None)
+
         elif q.data == "rep:top":
             await q.edit_message_text("⏳ Считаю ТОП водителей...")
 
@@ -886,8 +951,8 @@ async def job_daily(context: ContextTypes.DEFAULT_TYPE):
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton("📊 Отчёт за вчера"), KeyboardButton("📈 Отчёт за сегодня")],
-        [KeyboardButton("📅 Отчёт за 10 дней"), KeyboardButton("🏆 ТОП водителей")],
-        [KeyboardButton("🆚 Сравнить вчера и сегодня")],
+        [KeyboardButton("📅 Отчёт за 10 дней"), KeyboardButton("📆 Отчёт за месяц")],
+        [KeyboardButton("🏆 ТОП водителей"), KeyboardButton("🆚 Сравнить вчера и сегодня")],
     ],
     resize_keyboard=True,
 
@@ -895,6 +960,28 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
+
+
+async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard):
+    """Отправляет всех водителей чанками по 20, отсортированных по выручке."""
+    sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
+    chunk_size = 20
+    for i in range(0, len(sorted_drivers), chunk_size):
+        chunk = sorted_drivers[i:i+chunk_size]
+        num_start = i + 1
+        lines = "\n".join(
+            f"{num_start + j}. {fio} — {int(net):,}".replace(",", " ")
+            for j, (fio, net) in enumerate(chunk)
+        )
+        part_num = i // chunk_size + 1
+        total_parts = (len(sorted_drivers) + chunk_size - 1) // chunk_size
+        header = f"👥 <b>{title}</b> (часть {part_num}/{total_parts})\n\n" if total_parts > 1 else f"👥 <b>{title}</b>\n\n"
+        await bot.send_message(
+            chat_id=chat_id,
+            text=header + lines,
+            parse_mode="HTML",
+            reply_markup=keyboard if i + chunk_size >= len(sorted_drivers) else None,
+        )
 
 async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатываем нажатия Reply Keyboard кнопок."""
@@ -917,10 +1004,9 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⏳ Считаю отчёт за 10 дней...")
             total_orders = 0
             total_net = 0.0
-            driver_net = {}   # fio -> total net
-            driver_done = {}  # fio -> total orders
+            driver_net = {}
             start_date = now_dubai - timedelta(days=9)
-            end_date = now_dubai - timedelta(days=0)
+            end_date = now_dubai
             try:
                 directory = load_driver_directory()
             except Exception:
@@ -935,34 +1021,38 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         total_orders += a.done
                         total_net += a.net
                         driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
-                        driver_done[a.fio] = driver_done.get(a.fio, 0) + a.done
             park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
             avg_check = total_net / total_orders if total_orders else 0
-
-            # ТОП-5 и худшие 5
-            sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
-            top5 = sorted_drivers[:5]
-            worst5 = sorted_drivers[-5:][::-1]
-
-            top_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in top5)
-            worst_lines = "\n".join(f"• {fio} — {int(net):,}".replace(",", " ") for fio, net in worst5)
-
             date_range = f"{start_date} – {end_date}"
-            msg = (
+            summary = (
                 f"📅 <b>Отчёт за 10 дней ({date_range})</b>\n\n"
                 f"✅ Заказов: <b>{total_orders}</b>\n"
                 f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
                 f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
                 f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
-                f"👤 Водителей: <b>{len(driver_net)}</b>\n\n"
-                f"🏆 <b>ТОП-5 водителей</b>\n{top_lines}\n\n"
-                f"📉 <b>Худшие 5</b>\n{worst_lines}"
+                f"👤 Водителей: <b>{len(driver_net)}</b>"
             )
-            await update.message.reply_text(
-                msg,
-                parse_mode=ParseMode.HTML,
-                reply_markup=MAIN_KEYBOARD,
-            )
+            await update.message.reply_text(summary, parse_mode=ParseMode.HTML)
+            await send_all_drivers(bot, chat_id, driver_net, "Все водители за 10 дней", MAIN_KEYBOARD)
+
+        elif "месяц" in text.lower():
+            # Показываем inline кнопки выбора месяца
+            buttons = []
+            row = []
+            for i in range(5, -1, -1):
+                month_dt = now_dubai.replace(day=1)
+                for _ in range(i):
+                    month_dt = (month_dt - timedelta(days=1)).replace(day=1)
+                label = month_dt.strftime("%B %Y")
+                cb = f"month:{month_dt.strftime('%Y-%m')}"
+                row.append(InlineKeyboardButton(label, callback_data=cb))
+                if len(row) == 2:
+                    buttons.append(row)
+                    row = []
+            if row:
+                buttons.append(row)
+            kb = InlineKeyboardMarkup(buttons)
+            await update.message.reply_text("Выбери месяц:", reply_markup=kb)
 
         elif "топ" in text.lower():
             await update.message.reply_text("⏳ Считаю ТОП водителей...")
