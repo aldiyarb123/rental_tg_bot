@@ -876,16 +876,7 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
-            with requests.Session() as session:
-                for i in range(total_days):
-                    d = month_start + timedelta(days=i)
-                    time_from, time_to, from_dt, to_dt = dubai_day_range(d)
-                    orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-                    rows, agg = build_report_rows(str(d), orders, directory)
-                    for a in agg.values():
-                        total_orders += a.done
-                        total_net += a.net
-                        driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+            total_orders, total_net, driver_net = await fetch_range_data(month_start, month_end, directory)
             park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
             avg_check = total_net / total_orders if total_orders else 0
             summary = (
@@ -983,6 +974,41 @@ async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard)
             reply_markup=keyboard if i + chunk_size >= len(sorted_drivers) else None,
         )
 
+async def fetch_day_data(d, directory):
+    """Загружает данные за один день в отдельном потоке (для параллельности)."""
+    import asyncio
+    def _sync():
+        with requests.Session() as session:
+            time_from, time_to, from_dt, to_dt = dubai_day_range(d)
+            orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
+            rows, agg = build_report_rows(str(d), orders, directory)
+            return agg
+    return await asyncio.to_thread(_sync)
+
+
+async def fetch_range_data(start_date, end_date, directory):
+    """Параллельно загружает данные за все дни диапазона."""
+    import asyncio
+    days = []
+    d = start_date
+    while d <= end_date:
+        days.append(d)
+        d += timedelta(days=1)
+    results = await asyncio.gather(*[fetch_day_data(d, directory) for d in days], return_exceptions=True)
+    total_orders = 0
+    total_net = 0.0
+    driver_net = {}
+    for agg in results:
+        if isinstance(agg, Exception):
+            log.warning(f"Day fetch error: {agg}")
+            continue
+        for a in agg.values():
+            total_orders += a.done
+            total_net += a.net
+            driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+    return total_orders, total_net, driver_net
+
+
 async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатываем нажатия Reply Keyboard кнопок."""
     text = update.message.text.strip()
@@ -1011,16 +1037,7 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
-            with requests.Session() as session:
-                for i in range(10):
-                    d = start_date + timedelta(days=i)
-                    time_from, time_to, from_dt, to_dt = dubai_day_range(d)
-                    orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-                    rows, agg = build_report_rows(str(d), orders, directory)
-                    for a in agg.values():
-                        total_orders += a.done
-                        total_net += a.net
-                        driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
+            total_orders, total_net, driver_net = await fetch_range_data(start_date, end_date, directory)
             park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
             avg_check = total_net / total_orders if total_orders else 0
             date_range = f"{start_date} – {end_date}"
