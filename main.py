@@ -658,31 +658,7 @@ def write_csv(day_str: str, report_rows: List[List[Any]]) -> str:
         w.writerows(report_rows)
     return filename
 
-def get_month_totals_sync(day_date) -> tuple:
-    """Считает накопленные поездки и выручку с начала текущего месяца по day_date включительно."""
-    month_start = day_date.replace(day=1)
-    total_orders = 0
-    total_net = 0.0
-    try:
-        directory = load_driver_directory()
-    except Exception:
-        directory = {}
-    try:
-        with requests.Session() as session:
-            d = month_start
-            while d <= day_date:
-                time_from, time_to, from_dt, to_dt = dubai_day_range(d)
-                orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-                _, agg = build_report_rows(str(d), orders, directory)
-                total_orders += sum(a.done for a in agg.values())
-                total_net += sum(a.net for a in agg.values())
-                d += timedelta(days=1)
-    except Exception as e:
-        log.warning("Month totals error: %s", e)
-    return total_orders, total_net
-
-
-def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0) -> str:
+def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg]) -> str:
     total_orders = sum(a.done for a in agg.values())
     total_net = sum(a.net for a in agg.values())
     park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
@@ -696,28 +672,19 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: 
     text = (
         f"📅 <b>Отчёт за {day_str}</b>\n"
         f"✅ Заказов: <b>{total_orders}</b>\n"
-        f"💰 Выручка: <b>{total_net:,.0f} ₸</b>\n"
-        f"🏦 Доход таксопарка: <b>{park_income:,.0f} ₸</b>\n"
-        f"📊 Средний чек: <b>{avg_check:,.0f} ₸</b>\n"
-        f"👤 Водителей: <b>{len(agg)}</b>\n"
+        f"💰 Выручка: <b>{total_net:.2f}</b>\n"
+        f"🏦 Доход таксопарка: <b>{park_income:.2f}</b>\n"
+        f"📊 Средний чек: <b>{avg_check:.2f}</b>\n"
+        f"👤 Водителей: <b>{len(agg)}</b>\n\n"
     )
 
-    if month_orders > 0:
-        month_park = month_net * (PARK_COMMISSION_PERCENT / 100)
-        text += (
-            f"\n📆 <b>Итого с начала месяца:</b>\n"
-            f"   Поездок: <b>{month_orders:,}</b>\n"
-            f"   Выручка: <b>{month_net:,.0f} ₸</b>\n"
-            f"   Доход парка: <b>{month_park:,.0f} ₸</b>\n"
-        )
-
-    text += "\n🏆 <b>ТОП‑5 водителей</b>\n"
+    text += "🏆 <b>ТОП‑5 водителей</b>\n"
     for d in top_best:
-        text += f"• {d.fio} — {d.net:,.0f}\n"
+        text += f"• {d.fio} — {d.net:.0f}\n"
 
     text += "\n📉 <b>Худшие 5</b>\n"
     for d in top_worst:
-        text += f"• {d.fio} — {d.net:,.0f}\n"
+        text += f"• {d.fio} — {d.net:.0f}\n"
 
     return text
 
@@ -758,11 +725,7 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     CACHE[day_str] = {"rows": report_rows, "agg": agg}
 
-    # Считаем итог с начала месяца параллельно
-    import asyncio
-    month_orders, month_net = await asyncio.to_thread(get_month_totals_sync, day_date)
-
-    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net) + warn, parse_mode=ParseMode.HTML)
+    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg) + warn, parse_mode=ParseMode.HTML)
     with open(csv_path, "rb") as f:
         await bot.send_document(chat_id=send_to_chat_id, document=f, caption=f"CSV за {day_str}")
 
