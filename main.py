@@ -372,6 +372,78 @@ def orders_list_all(
 
     return kept
 
+
+def fetch_driver_balances(session: requests.Session) -> Dict[str, float]:
+    """
+    Загружает текущий баланс всех водителей через v1/parks/driver-profiles/list.
+    Возвращает dict: "Фамилия Имя Отчество" -> balance (float)
+    """
+    url = f"{FLEET_BASE}/v1/parks/driver-profiles/list"
+    balances: Dict[str, float] = {}
+    limit = 200
+    offset = 0
+
+    while True:
+        payload = {
+            "fields": {
+                "account": ["balance"],
+                "driver_profile": ["first_name", "last_name", "middle_name", "id"],
+            },
+            "limit": limit,
+            "offset": offset,
+            "query": {
+                "park": {"id": str(PARK_ID)}
+            },
+        }
+
+        r = post_with_retry(session, url, payload)
+        if r is None or r.status_code >= 400:
+            log.warning("fetch_driver_balances error: %s", getattr(r, "text", "no response"))
+            break
+
+        data = r.json()
+        items = data.get("driver_profiles") or []
+        if not items:
+            break
+
+        for item in items:
+            dp = item.get("driver_profile") or {}
+            account = item.get("accounts") or item.get("account") or []
+            balance_val = None
+
+            # accounts может быть списком или одним объектом
+            if isinstance(account, list):
+                for acc in account:
+                    if "balance" in acc:
+                        try:
+                            balance_val = float(acc["balance"])
+                            break
+                        except Exception:
+                            pass
+            elif isinstance(account, dict):
+                if "balance" in account:
+                    try:
+                        balance_val = float(account["balance"])
+                    except Exception:
+                        pass
+
+            if balance_val is None:
+                continue
+
+            first = (dp.get("first_name") or "").strip()
+            last = (dp.get("last_name") or "").strip()
+            middle = (dp.get("middle_name") or "").strip()
+            fio = " ".join([x for x in [last, first, middle] if x]).strip()
+            if fio:
+                balances[fio] = balance_val
+
+        if len(items) < limit:
+            break
+        offset += limit
+        time.sleep(0.2)
+
+    return balances
+
 # ------------------- TARIFFS -------------------
 TARIFF_SHEET_NAME = "Тарифы"
 TARIFF_HEADER = ["ФИО водителя", "Тариф", "Процент", "Дата начала АРА"]
@@ -620,8 +692,9 @@ def plate_from_order(o: dict) -> str:
 
     return ""
 
-def build_report_rows(day_str: str, orders: List[dict], directory: Dict[str, dict]) -> Tuple[List[List[Any]], Dict[str, DriverAgg]]:
+def build_report_rows(day_str: str, orders: List[dict], directory: Dict[str, dict], balances: Optional[Dict[str, float]] = None) -> Tuple[List[List[Any]], Dict[str, DriverAgg]]:
     agg: Dict[str, DriverAgg] = {}
+    balances = balances or {}
 
     for o in orders:
         result = fio_from_order(o)
@@ -710,7 +783,9 @@ def build_report_rows(day_str: str, orders: List[dict], directory: Dict[str, dic
     for r in rows_sorted:
         hours = round(r.line_seconds / 3600, 2)
 
-        bal = r.balance
+        bal = balances.get(r.fio)
+        if bal is None:
+            bal = r.balance
         if not bal:
             drow = directory.get((r.callsign or "").lower(), {})
             bal = drow.get("balance", "")
@@ -883,13 +958,18 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     with requests.Session() as session:
         orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
+        try:
+            balances = fetch_driver_balances(session)
+        except Exception as e:
+            log.warning("fetch_driver_balances failed: %s", e)
+            balances = {}
 
     try:
         directory = load_driver_directory()
     except Exception as e:
         log.warning("Driver directory unavailable (Google Sheets). Continue without it. Error: %s", e)
         directory = {}
-    report_rows, agg = build_report_rows(day_str, orders, directory)
+    report_rows, agg = build_report_rows(day_str, orders, directory, balances)
     if not orders:
         await bot.send_message(
             chat_id=send_to_chat_id,
