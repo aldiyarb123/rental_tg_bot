@@ -1221,6 +1221,21 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
 
 
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "📋 <b>Список команд</b>\n\n"
+        "/start — Главное меню с кнопками\n\n"
+        "<b>Тарифы водителей:</b>\n"
+        "/settariff ФИО Процент — установить тариф (число, 'штатный'=5%, 'тариф1'=2%)\n"
+        "<code>/settariff Феллер Вячеслав Анатольевич штатный</code>\n\n"
+        "/setara ФИО [дата] — установить тариф АРА (1% первые 14 дней, потом 2%)\n"
+        "<code>/setara Феллер Вячеслав Анатольевич 2026-06-11</code>\n\n"
+        "/tariffs — показать список всех установленных тарифов\n\n"
+        "/help — это сообщение"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=MAIN_KEYBOARD)
+
+
 async def cmd_settariff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /settariff Фамилия Имя Отчество 5
@@ -1515,6 +1530,7 @@ async def setup_bot_commands(app: Application):
     from telegram import BotCommand
     commands = [
         BotCommand("start", "Главное меню с кнопками"),
+        BotCommand("help", "Список всех команд"),
         BotCommand("settariff", "Установить тариф водителю (штатный/тариф1/%)"),
         BotCommand("setara", "Установить тариф АРА с датой начала"),
         BotCommand("tariffs", "Показать список всех тарифов"),
@@ -1525,6 +1541,7 @@ async def setup_bot_commands(app: Application):
 def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
