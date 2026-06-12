@@ -1430,8 +1430,20 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log.exception("text button error")
         await update.message.reply_text(f"⚠ Ошибка: {e}", reply_markup=MAIN_KEYBOARD)
 
+async def setup_bot_commands(app: Application):
+    """Регистрирует команды бота для подсказок при вводе '/'."""
+    from telegram import BotCommand
+    commands = [
+        BotCommand("start", "Главное меню с кнопками"),
+        BotCommand("settariff", "Установить тариф водителю (штатный/тариф1/%)"),
+        BotCommand("setara", "Установить тариф АРА с датой начала"),
+        BotCommand("tariffs", "Показать список всех тарифов"),
+    ]
+    await app.bot.set_my_commands(commands)
+
+
 def build_app() -> Application:
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
