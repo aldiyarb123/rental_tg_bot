@@ -372,6 +372,112 @@ def orders_list_all(
 
     return kept
 
+# ------------------- TARIFFS -------------------
+TARIFF_SHEET_NAME = "Тарифы"
+TARIFF_HEADER = ["ФИО водителя", "Тариф", "Процент", "Дата начала АРА"]
+
+def load_tariffs() -> Dict[str, dict]:
+    """
+    Загружает справочник тарифов из Google Sheets (лист "Тарифы").
+    Возвращает dict: fio -> {"tariff": str, "percent": float, "ara_start": date|None}
+    """
+    import datetime as dt_mod
+    result = {}
+    try:
+        gc = gs_client()
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        try:
+            ws = sh.worksheet(TARIFF_SHEET_NAME)
+        except gspread.WorksheetNotFound:
+            return result
+        rows = ws.get_all_records()
+        for r in rows:
+            fio = str(r.get("ФИО водителя") or "").strip()
+            if not fio:
+                continue
+            tariff = str(r.get("Тариф") or "").strip()
+            percent_raw = r.get("Процент")
+            try:
+                percent = float(percent_raw) if percent_raw not in (None, "", "авто") else None
+            except Exception:
+                percent = None
+            ara_start_raw = str(r.get("Дата начала АРА") or "").strip()
+            ara_start = None
+            if ara_start_raw:
+                try:
+                    ara_start = dt_mod.date.fromisoformat(ara_start_raw)
+                except Exception:
+                    ara_start = None
+            result[fio] = {"tariff": tariff, "percent": percent, "ara_start": ara_start}
+    except Exception as e:
+        log.warning("load_tariffs error: %s", e)
+    return result
+
+
+def get_driver_percent(fio: str, tariffs: Dict[str, dict], for_date=None) -> float:
+    """
+    Возвращает процент комиссии парка для конкретного водителя.
+    Если тариф не задан — используется PARK_COMMISSION_PERCENT (дефолт).
+    Для АРА: 1% первые 14 дней с ara_start, потом 2%.
+    """
+    import datetime as dt_mod
+    info = tariffs.get(fio)
+    if not info:
+        return PARK_COMMISSION_PERCENT
+
+    tariff = (info.get("tariff") or "").strip().upper()
+    if tariff == "АРА":
+        ara_start = info.get("ara_start")
+        if ara_start:
+            check_date = for_date or dt_mod.date.today()
+            days_passed = (check_date - ara_start).days
+            return 1.0 if days_passed < 14 else 2.0
+        return 1.0
+
+    if info.get("percent") is not None:
+        return info["percent"]
+
+    return PARK_COMMISSION_PERCENT
+
+
+def set_tariff(fio: str, tariff: str, percent: Optional[float] = None, ara_start=None) -> None:
+    """Создаёт/обновляет запись в листе 'Тарифы' для водителя."""
+    gc = gs_client()
+    sh = gc.open_by_key(GOOGLE_SHEET_ID)
+    ws = gs_get_or_create_ws(sh, TARIFF_SHEET_NAME, rows=500, cols=10)
+
+    values = ws.get_all_values()
+    if not values:
+        ws.update(values=[TARIFF_HEADER], range_name="A1", value_input_option="USER_ENTERED")
+        values = [TARIFF_HEADER]
+
+    header = values[0]
+    fio_col = 0
+    row_idx = None
+    for i, row in enumerate(values[1:], start=2):
+        if len(row) > fio_col and row[fio_col].strip() == fio.strip():
+            row_idx = i
+            break
+
+    percent_str = "" if percent is None else str(percent)
+    ara_str = "" if not ara_start else str(ara_start)
+    new_row = [fio, tariff, percent_str, ara_str]
+
+    if row_idx:
+        ws.update(values=[new_row], range_name=f"A{row_idx}:D{row_idx}", value_input_option="USER_ENTERED")
+    else:
+        ws.append_row(new_row, value_input_option="USER_ENTERED")
+
+
+def calc_park_income_individual(agg: Dict[str, "DriverAgg"], tariffs: Dict[str, dict], for_date=None) -> float:
+    """Считает доход парка с учётом индивидуальных процентов каждого водителя."""
+    total = 0.0
+    for fio, a in agg.items():
+        pct = get_driver_percent(fio, tariffs, for_date)
+        total += a.net * (pct / 100)
+    return total
+
+
 # ------------------- REPORT (без VLOOKUP) -------------------
 def load_driver_directory() -> Dict[str, dict]:
     """
@@ -658,10 +764,78 @@ def write_csv(day_str: str, report_rows: List[List[Any]]) -> str:
         w.writerows(report_rows)
     return filename
 
-def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg]) -> str:
+def get_month_totals_sync(day_date) -> tuple:
+    """Считает накопленные поездки и выручку с начала текущего месяца по day_date включительно."""
+    month_start = day_date.replace(day=1)
+    total_orders = 0
+    total_net = 0.0
+    try:
+        directory = load_driver_directory()
+    except Exception:
+        directory = {}
+    try:
+        with requests.Session() as session:
+            d = month_start
+            while d <= day_date:
+                time_from, time_to, from_dt, to_dt = dubai_day_range(d)
+                orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
+                _, agg = build_report_rows(str(d), orders, directory)
+                total_orders += sum(a.done for a in agg.values())
+                total_net += sum(a.net for a in agg.values())
+                d += timedelta(days=1)
+    except Exception as e:
+        log.warning("Month totals error: %s", e)
+    return total_orders, total_net
+
+
+def get_month_totals_from_sheets(day_date) -> tuple:
+    """Суммирует поездки и выручку за текущий месяц из Google Sheets (листы по датам)."""
+    import datetime as dt_mod
+    try:
+        gc = gs_client()
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        month_prefix = day_date.strftime("%Y-%m")
+        total_orders = 0
+        total_net = 0.0
+        for ws in sh.worksheets():
+            title = ws.title.strip()
+            if not title.startswith(month_prefix):
+                continue
+            try:
+                sheet_date = dt_mod.date.fromisoformat(title)
+                if sheet_date > day_date:
+                    continue
+            except Exception:
+                continue
+            values = ws.get_all_values()
+            for row in values[1:]:
+                if len(row) >= 5:
+                    try:
+                        orders_val = int(row[2]) if str(row[2]).strip() else 0
+                        net_str = str(row[4]).replace(",", "").replace(" ", "").strip()
+                        net_val = float(net_str) if net_str else 0.0
+                        total_orders += orders_val
+                        total_net += net_val
+                    except Exception:
+                        pass
+        return total_orders, total_net
+    except Exception as e:
+        log.warning("get_month_totals_from_sheets error: %s", e)
+        return 0, 0.0
+
+
+def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0, tariffs: Optional[Dict[str, dict]] = None) -> str:
+    import datetime as dt_mod
     total_orders = sum(a.done for a in agg.values())
     total_net = sum(a.net for a in agg.values())
-    park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+    if tariffs:
+        try:
+            report_date = dt_mod.date.fromisoformat(day_str)
+        except Exception:
+            report_date = dt_mod.date.today()
+        park_income = calc_park_income_individual(agg, tariffs, report_date)
+    else:
+        park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
     avg_check = round(total_net / total_orders, 2) if total_orders else 0.0
 
     # топы
@@ -672,19 +846,28 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg]) -> str:
     text = (
         f"📅 <b>Отчёт за {day_str}</b>\n"
         f"✅ Заказов: <b>{total_orders}</b>\n"
-        f"💰 Выручка: <b>{total_net:.2f}</b>\n"
-        f"🏦 Доход таксопарка: <b>{park_income:.2f}</b>\n"
-        f"📊 Средний чек: <b>{avg_check:.2f}</b>\n"
-        f"👤 Водителей: <b>{len(agg)}</b>\n\n"
+        f"💰 Выручка: <b>{total_net:,.0f} ₸</b>\n"
+        f"🏦 Доход таксопарка: <b>{park_income:,.0f} ₸</b>\n"
+        f"📊 Средний чек: <b>{avg_check:,.0f} ₸</b>\n"
+        f"👤 Водителей: <b>{len(agg)}</b>\n"
     )
 
-    text += "🏆 <b>ТОП‑5 водителей</b>\n"
+    if month_orders > 0:
+        month_park = month_net * (PARK_COMMISSION_PERCENT / 100)
+        text += (
+            f"\n📆 <b>Итого с начала месяца:</b>\n"
+            f"   Поездок: <b>{month_orders:,}</b>\n"
+            f"   Выручка: <b>{month_net:,.0f} ₸</b>\n"
+            f"   Доход парка: <b>{month_park:,.0f} ₸</b>\n"
+        )
+
+    text += "\n🏆 <b>ТОП‑5 водителей</b>\n"
     for d in top_best:
-        text += f"• {d.fio} — {d.net:.0f}\n"
+        text += f"• {d.fio} — {d.net:,.0f}\n"
 
     text += "\n📉 <b>Худшие 5</b>\n"
     for d in top_worst:
-        text += f"• {d.fio} — {d.net:.0f}\n"
+        text += f"• {d.fio} — {d.net:,.0f}\n"
 
     return text
 
@@ -725,7 +908,12 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     CACHE[day_str] = {"rows": report_rows, "agg": agg}
 
-    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg) + warn, parse_mode=ParseMode.HTML)
+    # Считаем итог с начала месяца из Google Sheets
+    import asyncio
+    month_orders, month_net = await asyncio.to_thread(get_month_totals_from_sheets, day_date)
+    tariffs = await asyncio.to_thread(load_tariffs)
+
+    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs) + warn, parse_mode=ParseMode.HTML)
     with open(csv_path, "rb") as f:
         await bot.send_document(chat_id=send_to_chat_id, document=f, caption=f"CSV за {day_str}")
 
@@ -953,6 +1141,126 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
 
 
+async def cmd_settariff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /settariff Фамилия Имя Отчество 5
+    /settariff Фамилия Имя Отчество тариф1   -> 2%
+    /settariff Фамилия Имя Отчество штатный  -> 5%
+    """
+    import asyncio
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text(
+            "Использование:\n"
+            "<code>/settariff ФИО Процент</code>\n\n"
+            "Примеры:\n"
+            "<code>/settariff Феллер Вячеслав Анатольевич 5</code>\n"
+            "<code>/settariff Феллер Вячеслав Анатольевич штатный</code>\n"
+            "<code>/settариff Феллер Вячеслав Анатольевич тариф1</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    last_arg = args[-1].lower()
+    fio = " ".join(args[:-1])
+
+    if last_arg in ("штатный", "штат", "5"):
+        tariff_name, percent = "Штатный", 5.0
+    elif last_arg in ("тариф1", "тариф 1", "2"):
+        tariff_name, percent = "Тариф1", 2.0
+    else:
+        try:
+            percent = float(last_arg.replace(",", "."))
+            tariff_name = "Кастом"
+        except ValueError:
+            await update.message.reply_text("⚠ Не понял процент. Укажи число, 'штатный' или 'тариф1'.")
+            return
+
+    try:
+        await asyncio.to_thread(set_tariff, fio, tariff_name, percent, None)
+        await update.message.reply_text(
+            f"✅ Тариф для <b>{fio}</b> установлен: <b>{tariff_name} ({percent}%)</b>",
+            parse_mode=ParseMode.HTML,
+        )
+    except Exception as e:
+        log.exception("settariff error")
+        await update.message.reply_text(f"⚠ Ошибка: {e}")
+
+
+async def cmd_setara(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /setara Фамилия Имя Отчество [YYYY-MM-DD]
+    Если дата не указана — используется сегодняшняя (Dubai).
+    Первые 14 дней с этой даты — 1%, далее автоматически 2%.
+    """
+    import asyncio
+    import datetime as dt_mod
+    args = context.args
+    if len(args) < 1:
+        await update.message.reply_text(
+            "Использование:\n"
+            "<code>/setara ФИО [YYYY-MM-DD]</code>\n\n"
+            "Пример:\n"
+            "<code>/setara Феллер Вячеслав Анатольевич 2026-06-11</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    last_arg = args[-1]
+    ara_date = None
+    try:
+        ara_date = dt_mod.date.fromisoformat(last_arg)
+        fio = " ".join(args[:-1])
+    except ValueError:
+        fio = " ".join(args)
+        ara_date = datetime.now(DUBAI_TZ).date()
+
+    try:
+        await asyncio.to_thread(set_tariff, fio, "АРА", None, ara_date)
+        await update.message.reply_text(
+            f"✅ Тариф АРА для <b>{fio}</b> установлен с {ara_date}.\n"
+            f"Первые 14 дней — 1%, далее автоматически 2%.",
+            parse_mode=ParseMode.HTML,
+        )
+    except Exception as e:
+        log.exception("setara error")
+        await update.message.reply_text(f"⚠ Ошибка: {e}")
+
+
+async def cmd_tariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает список всех установленных тарифов."""
+    import asyncio
+    import datetime as dt_mod
+    try:
+        tariffs = await asyncio.to_thread(load_tariffs)
+    except Exception as e:
+        await update.message.reply_text(f"⚠ Ошибка: {e}")
+        return
+
+    if not tariffs:
+        await update.message.reply_text("Список тарифов пуст. Используй /settariff или /setara чтобы добавить.")
+        return
+
+    today = datetime.now(DUBAI_TZ).date()
+    lines = ["📋 <b>Тарифы водителей</b>\n"]
+    for fio, info in tariffs.items():
+        tariff = info.get("tariff") or "—"
+        if tariff.upper() == "АРА":
+            ara_start = info.get("ara_start")
+            if ara_start:
+                pct = get_driver_percent(fio, tariffs, today)
+                days = (today - ara_start).days
+                lines.append(f"• {fio} — АРА (с {ara_start}, день {days+1}) → <b>{pct}%</b>")
+            else:
+                lines.append(f"• {fio} — АРА → <b>1%</b>")
+        else:
+            pct = info.get("percent")
+            pct_str = f"{pct}%" if pct is not None else f"{PARK_COMMISSION_PERCENT}% (дефолт)"
+            lines.append(f"• {fio} — {tariff} → <b>{pct_str}</b>")
+
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+
 async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard):
     """Отправляет всех водителей чанками по 20, отсортированных по выручке."""
     sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
@@ -1125,6 +1433,9 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("settariff", cmd_settariff))
+    app.add_handler(CommandHandler("setara", cmd_setara))
+    app.add_handler(CommandHandler("tariffs", cmd_tariffs))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_button))
 
