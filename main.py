@@ -519,9 +519,12 @@ def set_tariff(fio: str, tariff: str, percent: Optional[float] = None, ara_start
     ws = gs_get_or_create_ws(sh, TARIFF_SHEET_NAME, rows=500, cols=10)
 
     values = ws.get_all_values()
-    if not values:
-        ws.update(values=[TARIFF_HEADER], range_name="A1", value_input_option="USER_ENTERED")
-        values = [TARIFF_HEADER]
+    # Проверяем, есть ли заголовок (первая строка должна совпадать с TARIFF_HEADER)
+    has_header = bool(values) and len(values[0]) >= 1 and values[0][0].strip() == TARIFF_HEADER[0]
+    if not has_header:
+        # Вставляем заголовок первой строкой, сдвигая всё остальное вниз
+        ws.insert_row(TARIFF_HEADER, index=1, value_input_option="USER_ENTERED")
+        values = ws.get_all_values()
 
     header = values[0]
     fio_col = 0
