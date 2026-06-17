@@ -1250,6 +1250,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
         [KeyboardButton("📊 Отчёт за вчера"), KeyboardButton("📈 Отчёт за сегодня")],
         [KeyboardButton("📅 Отчёт за 10 дней"), KeyboardButton("📆 Отчёт за месяц")],
         [KeyboardButton("🏆 ТОП водителей"), KeyboardButton("🆚 Сравнить вчера и сегодня")],
+        [KeyboardButton("👔 Штатные водители")],
     ],
     resize_keyboard=True,
 
@@ -1396,23 +1397,11 @@ async def cmd_tariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
-async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /staff [вчера|сегодня] — отчёт только по штатным водителям (тариф "Штатный" или без тарифа).
-    """
+async def _send_staff_report(day_date, chat_id: int, bot):
+    """Core: отчёт только по штатным водителям (тариф 'Штатный' или без тарифа) за day_date."""
     import asyncio
-    chat_id = update.effective_chat.id
-    args = context.args
-    period = (args[0].lower() if args else "вчера")
-
-    now_dubai = datetime.now(DUBAI_TZ).date()
-    if "сегодня" in period:
-        day_date = now_dubai
-    else:
-        day_date = now_dubai - timedelta(days=1)
-
     day_str = str(day_date)
-    await update.message.reply_text(f"⏳ Считаю отчёт по штатным водителям за {day_str}...")
+    await bot.send_message(chat_id=chat_id, text=f"⏳ Считаю отчёт по штатным водителям за {day_str}...")
 
     time_from, time_to, from_dt, to_dt = dubai_day_range(day_date)
     try:
@@ -1420,7 +1409,7 @@ async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
             orders = await asyncio.to_thread(orders_list_all, session, time_from, time_to, from_dt, to_dt)
             balances = await asyncio.to_thread(fetch_driver_balances, session)
     except Exception as e:
-        await update.message.reply_text(f"⚠ Ошибка загрузки заказов: {e}")
+        await bot.send_message(chat_id=chat_id, text=f"⚠ Ошибка загрузки заказов: {e}")
         return
 
     try:
@@ -1440,7 +1429,7 @@ async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
             staff_agg[fio] = a
 
     if not staff_agg:
-        await update.message.reply_text("Штатных водителей за этот день не найдено.", reply_markup=MAIN_KEYBOARD)
+        await bot.send_message(chat_id=chat_id, text="Штатных водителей за этот день не найдено.", reply_markup=MAIN_KEYBOARD)
         return
 
     total_orders = sum(a.done for a in staff_agg.values())
@@ -1456,15 +1445,31 @@ async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📊 Средний чек: <b>{avg_check:,.0f} ₸</b>\n"
         f"👤 Водителей: <b>{len(staff_agg)}</b>"
     )
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    await bot.send_message(chat_id=chat_id, text=text, parse_mode=ParseMode.HTML)
 
     driver_net = {fio: a.net for fio, a in staff_agg.items()}
-    log.info("staff driver_net count=%s", len(driver_net))
     try:
-        await send_all_drivers(context.bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
+        await send_all_drivers(bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
     except Exception as e:
-        log.exception("cmd_staff send_all_drivers error")
-        await update.message.reply_text(f"⚠ Ошибка при отправке списка водителей: {e}")
+        log.exception("_send_staff_report send_all_drivers error")
+        await bot.send_message(chat_id=chat_id, text=f"⚠ Ошибка при отправке списка водителей: {e}")
+
+
+async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /staff [вчера|сегодня] — отчёт только по штатным водителям (тариф "Штатный" или без тарифа).
+    """
+    chat_id = update.effective_chat.id
+    args = context.args
+    period = (args[0].lower() if args else "вчера")
+
+    now_dubai = datetime.now(DUBAI_TZ).date()
+    if "сегодня" in period:
+        day_date = now_dubai
+    else:
+        day_date = now_dubai - timedelta(days=1)
+
+    await _send_staff_report(day_date, chat_id, context.bot)
 
 
 
@@ -1585,6 +1590,9 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 buttons.append(row)
             kb = InlineKeyboardMarkup(buttons)
             await update.message.reply_text("Выбери месяц:", reply_markup=kb)
+
+        elif "штатные" in text.lower():
+            await _send_staff_report(yesterday, chat_id, bot)
 
         elif "топ" in text.lower():
             await update.message.reply_text("⏳ Считаю ТОП водителей...")
