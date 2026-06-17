@@ -1424,7 +1424,12 @@ async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
     driver_net = {fio: a.net for fio, a in staff_agg.items()}
-    await send_all_drivers(context.bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
+    log.info("staff driver_net count=%s", len(driver_net))
+    try:
+        await send_all_drivers(context.bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
+    except Exception as e:
+        log.exception("cmd_staff send_all_drivers error")
+        await update.message.reply_text(f"⚠ Ошибка при отправке списка водителей: {e}")
 
 
 
