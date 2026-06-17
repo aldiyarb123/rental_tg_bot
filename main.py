@@ -1680,7 +1680,52 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-now", action="store_true", help="Run yesterday report (Dubai) to CHAT_ID and exit")
     parser.add_argument("--run-date", type=str, default=None, help="Run report for YYYY-MM-DD to CHAT_ID and exit")
+    parser.add_argument("--import-tariffs", type=str, default=None,
+                         help="Bulk import tariffs from a commands file (one /settariff or /setara per line) and exit")
     args = parser.parse_args()
+
+    if args.import_tariffs:
+        count = 0
+        with open(args.import_tariffs, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if parts[0] == "/settariff":
+                    last = parts[-1].lower()
+                    fio = " ".join(parts[1:-1])
+                    if last in ("штатный", "штат", "5"):
+                        tariff_name, percent = "Штатный", 5.0
+                    elif last in ("тариф1", "тариф 1", "2"):
+                        tariff_name, percent = "Тариф1", 2.0
+                    else:
+                        try:
+                            percent = float(last.replace(",", "."))
+                            tariff_name = "Кастом"
+                        except ValueError:
+                            print(f"SKIP (bad percent): {line}")
+                            continue
+                    set_tariff(fio, tariff_name, percent, None)
+                    print(f"OK settariff: {fio} -> {tariff_name} ({percent}%)")
+                    count += 1
+                elif parts[0] == "/setara":
+                    import datetime as dt_mod
+                    last = parts[-1]
+                    try:
+                        ara_date = dt_mod.date.fromisoformat(last)
+                        fio = " ".join(parts[1:-1])
+                    except ValueError:
+                        fio = " ".join(parts[1:])
+                        ara_date = datetime.now(DUBAI_TZ).date()
+                    set_tariff(fio, "АРА", None, ara_date)
+                    print(f"OK setara: {fio} -> {ara_date}")
+                    count += 1
+                else:
+                    print(f"SKIP (unknown command): {line}")
+                time.sleep(0.3)  # не долбить Google Sheets API слишком быстро
+        print(f"\nDone. Imported {count} tariff entries.")
+        raise SystemExit(0)
 
     # CLI: отправить отчёт в CHAT_ID и выйти
     if args.run_now or args.run_date:
