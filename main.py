@@ -930,6 +930,41 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: 
         f"👤 Водителей: <b>{len(agg)}</b>\n"
     )
 
+    # Разбивка по тарифным группам
+    groups: Dict[str, Dict[str, float]] = {
+        "Штатные": {"orders": 0, "net": 0.0, "count": 0},
+        "АРА": {"orders": 0, "net": 0.0, "count": 0},
+        "Тариф1": {"orders": 0, "net": 0.0, "count": 0},
+        "Другие": {"orders": 0, "net": 0.0, "count": 0},
+    }
+    tariffs = tariffs or {}
+    for fio, a in agg.items():
+        info = tariffs.get(fio)
+        if info is None:
+            group = "Штатные"
+        else:
+            t = (info.get("tariff") or "").strip().lower()
+            if t == "штатный":
+                group = "Штатные"
+            elif t == "ара":
+                group = "АРА"
+            elif t == "тариф1":
+                group = "Тариф1"
+            else:
+                group = "Другие"
+        groups[group]["orders"] += a.done
+        groups[group]["net"] += a.net
+        groups[group]["count"] += 1
+
+    group_emoji = {"Штатные": "👔", "АРА": "🆕", "Тариф1": "2️⃣", "Другие": "📋"}
+    text += "\n📂 <b>По тарифам:</b>\n"
+    for gname, gdata in groups.items():
+        if gdata["count"] == 0:
+            continue
+        emoji = group_emoji.get(gname, "•")
+        text += f"{emoji} {gname} ({gdata['count']}): {gdata['net']:,.0f} ₸\n"
+    text += "\n"
+
     if month_orders > 0:
         month_park = month_net * (PARK_COMMISSION_PERCENT / 100)
         text += (
