@@ -1459,7 +1459,10 @@ async def cmd_importtariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def cmd_tariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает список всех установленных тарифов."""
+    if update.message is None:
+        return
     import asyncio
     import datetime as dt_mod
     try:
