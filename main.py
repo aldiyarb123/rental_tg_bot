@@ -1450,7 +1450,7 @@ async def cmd_importtariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             log.warning("importtariffs failed for %s: %s", fio, e)
             fail_count += 1
-        await asyncio.sleep(3)
+        await asyncio.sleep(0.3)
 
     await update.message.reply_text(
         f"✅ Импорт завершён.\nУспешно: {ok_count}\nОшибок: {fail_count}",
@@ -1545,11 +1545,10 @@ async def _send_staff_report(day_date, chat_id: int, bot):
     )
     await bot.send_message(chat_id=chat_id, text=text, parse_mode=ParseMode.HTML)
 
-    driver_net = {fio: a.net for fio, a in staff_agg.items()}
     try:
-        await send_all_drivers(bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
+        await send_staff_drivers_with_balance(bot, chat_id, staff_agg, balances, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
     except Exception as e:
-        log.exception("_send_staff_report send_all_drivers error")
+        log.exception("_send_staff_report send list error")
         await bot.send_message(chat_id=chat_id, text=f"⚠ Ошибка при отправке списка водителей: {e}")
 
 
@@ -1591,6 +1590,33 @@ async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard)
             parse_mode="HTML",
             reply_markup=keyboard if i + chunk_size >= len(sorted_drivers) else None,
         )
+
+async def send_staff_drivers_with_balance(bot, chat_id, staff_agg: Dict[str, "DriverAgg"], balances: Dict[str, float], title: str, keyboard):
+    """Отправляет штатных водителей чанками по 20: ФИО, выручка и текущий баланс из Яндекса."""
+    sorted_drivers = sorted(staff_agg.items(), key=lambda x: x[1].net, reverse=True)
+    chunk_size = 20
+    for i in range(0, len(sorted_drivers), chunk_size):
+        chunk = sorted_drivers[i:i+chunk_size]
+        num_start = i + 1
+        lines_list = []
+        for j, (fio, a) in enumerate(chunk):
+            bal = balances.get(fio)
+            if bal is None:
+                bal = a.balance
+            net_str = f"{int(a.net):,}".replace(",", " ")
+            bal_str = f"{bal:,.0f}".replace(",", " ") if bal else "—"
+            lines_list.append(f"{num_start + j}. {fio} — {net_str} ₸ | Баланс: {bal_str} ₸")
+        lines = "\n".join(lines_list)
+        part_num = i // chunk_size + 1
+        total_parts = (len(sorted_drivers) + chunk_size - 1) // chunk_size
+        header = f"👥 <b>{title}</b> (часть {part_num}/{total_parts})\n\n" if total_parts > 1 else f"👥 <b>{title}</b>\n\n"
+        await bot.send_message(
+            chat_id=chat_id,
+            text=header + lines,
+            parse_mode="HTML",
+            reply_markup=keyboard if i + chunk_size >= len(sorted_drivers) else None,
+        )
+
 
 async def fetch_day_data(d, directory):
     """Загружает данные за один день в отдельном потоке (для параллельности)."""
