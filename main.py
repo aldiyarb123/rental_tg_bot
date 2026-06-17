@@ -1234,6 +1234,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/setara ФИО [дата] — установить тариф АРА (1% первые 14 дней, потом 2%)\n"
         "<code>/setara Феллер Вячеслав Анатольевич 2026-06-11</code>\n\n"
         "/tariffs — показать список всех установленных тарифов\n\n"
+        "/staff [вчера|сегодня] — отчёт только по штатным водителям\n"
+        "<code>/staff вчера</code>\n\n"
         "/help — это сообщение"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=MAIN_KEYBOARD)
@@ -1359,7 +1361,73 @@ async def cmd_tariffs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
-async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard):
+async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /staff [вчера|сегодня] — отчёт только по штатным водителям (тариф "Штатный" или без тарифа).
+    """
+    import asyncio
+    chat_id = update.effective_chat.id
+    args = context.args
+    period = (args[0].lower() if args else "вчера")
+
+    now_dubai = datetime.now(DUBAI_TZ).date()
+    if "сегодня" in period:
+        day_date = now_dubai
+    else:
+        day_date = now_dubai - timedelta(days=1)
+
+    day_str = str(day_date)
+    await update.message.reply_text(f"⏳ Считаю отчёт по штатным водителям за {day_str}...")
+
+    time_from, time_to, from_dt, to_dt = dubai_day_range(day_date)
+    try:
+        with requests.Session() as session:
+            orders = await asyncio.to_thread(orders_list_all, session, time_from, time_to, from_dt, to_dt)
+            balances = await asyncio.to_thread(fetch_driver_balances, session)
+    except Exception as e:
+        await update.message.reply_text(f"⚠ Ошибка загрузки заказов: {e}")
+        return
+
+    try:
+        directory = await asyncio.to_thread(load_driver_directory)
+    except Exception:
+        directory = {}
+
+    _, agg = build_report_rows(day_str, orders, directory, balances)
+    tariffs = await asyncio.to_thread(load_tariffs)
+
+    # Штатные = явно "Штатный" в тарифах, ИЛИ вообще без записи в тарифах (дефолт)
+    staff_agg = {}
+    for fio, a in agg.items():
+        info = tariffs.get(fio)
+        is_staff = (info is None) or ((info.get("tariff") or "").strip().lower() == "штатный")
+        if is_staff:
+            staff_agg[fio] = a
+
+    if not staff_agg:
+        await update.message.reply_text("Штатных водителей за этот день не найдено.", reply_markup=MAIN_KEYBOARD)
+        return
+
+    total_orders = sum(a.done for a in staff_agg.values())
+    total_net = sum(a.net for a in staff_agg.values())
+    park_income = calc_park_income_individual(staff_agg, tariffs, day_date)
+    avg_check = round(total_net / total_orders, 2) if total_orders else 0.0
+
+    text = (
+        f"👔 <b>Штатные водители за {day_str}</b>\n\n"
+        f"✅ Заказов: <b>{total_orders}</b>\n"
+        f"💰 Выручка: <b>{total_net:,.0f} ₸</b>\n"
+        f"🏦 Доход таксопарка: <b>{park_income:,.0f} ₸</b>\n"
+        f"📊 Средний чек: <b>{avg_check:,.0f} ₸</b>\n"
+        f"👤 Водителей: <b>{len(staff_agg)}</b>"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+    driver_net = {fio: a.net for fio, a in staff_agg.items()}
+    await send_all_drivers(context.bot, chat_id, driver_net, f"Штатные водители за {day_str}", MAIN_KEYBOARD)
+
+
+
     """Отправляет всех водителей чанками по 20, отсортированных по выручке."""
     sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
     chunk_size = 20
@@ -1537,6 +1605,7 @@ async def setup_bot_commands(app: Application):
         BotCommand("settariff", "Установить тариф водителю (штатный/тариф1/%)"),
         BotCommand("setara", "Установить тариф АРА с датой начала"),
         BotCommand("tariffs", "Показать список всех тарифов"),
+        BotCommand("staff", "Отчёт только по штатным водителям"),
     ]
     await app.bot.set_my_commands(commands)
 
@@ -1548,6 +1617,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
+    app.add_handler(CommandHandler("staff", cmd_staff))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_button))
 
