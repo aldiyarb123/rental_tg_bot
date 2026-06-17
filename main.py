@@ -1433,6 +1433,7 @@ async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def send_all_drivers(bot, chat_id, driver_net: dict, title: str, keyboard):
     """Отправляет всех водителей чанками по 20, отсортированных по выручке."""
     sorted_drivers = sorted(driver_net.items(), key=lambda x: x[1], reverse=True)
     chunk_size = 20
