@@ -244,9 +244,9 @@ def orders_list(
             "driver_profile": ["id", "first_name", "last_name", "callsign", "name","balance"],
             "car": ["callsign", "brand_model", "license"],
             "payment": ["amount", "type"],
-            "fees": [],
-            "cost": [],
-            "price": [],
+            "tip": ["amount"],
+            "bonus": ["amount"],
+            "promotion": ["amount"],
         },
     }
 
@@ -446,71 +446,56 @@ def fetch_driver_balances(session: requests.Session) -> Dict[str, float]:
 
 # ------------------- TARIFFS -------------------
 BULK_TARIFF_IMPORT = [
-    ("Абдукадыров Дониёр Абдукаримович", "Штатный", 5.0, None),
-    ("Алиев Сулейман Рутамович", "Штатный", 5.0, None),
-    ("Амарбеков Сухраб Султанмуратович", "Штатный", 5.0, None),
-    ("Аяпов Динмухамед Абуталипулы", "Штатный", 5.0, None),
-    ("Бегимбетов Арнур Абдикалиевич", "Штатный", 5.0, None),
-    ("Валиев Шахмурат Аркинжанович", "Штатный", 5.0, None),
-    ("Диханбай Кайрат Қуанышұлы", "Штатный", 5.0, None),
-    ("Дөңес Ерсұлтан Дөңесұлы", "Штатный", 5.0, None),
-    ("Әли Әділет Бактиярұлы", "Штатный", 5.0, None),
-    ("Еркетайұлы Ерсін", "Штатный", 5.0, None),
-    ("Ибодов Рахматулла", "Штатный", 5.0, None),
-    ("Исламов Хамиджан Нуриевич", "Штатный", 5.0, None),
-    ("Кадыров Ернұр Ерланұлы", "Штатный", 5.0, None),
-    ("Касымов Эдуард Маратович", "Штатный", 5.0, None),
-    ("Ким Игорь Юрьевич", "Штатный", 5.0, None),
-    ("Ким Денис Витальевич", "Штатный", 5.0, None),
-    ("Косанов Марат Гусманович", "Штатный", 5.0, None),
-    ("Мақсұт Темірлан Есенгелдіұлы", "Штатный", 5.0, None),
-    ("Мансуров Аслан Келисович", "Штатный", 5.0, None),
-    ("Махамбетов Мұқасан Нұрқас Уғли", "Штатный", 5.0, None),
-    ("Мухамеджан Нурбол Ахметиллаұлы", "Штатный", 5.0, None),
-    ("Нұрғожа Алмас Алмас", "Штатный", 5.0, None),
-    ("Пруглов Олег Витальевич", "Штатный", 5.0, None),
-    ("Рулёв Даниэль Владмирович", "Штатный", 5.0, None),
-    ("Садвахасов Қанат Шамбилұлы", "Штатный", 5.0, None),
-    ("Спанкулов Алдияр Замирович", "Штатный", 5.0, None),
-    ("Спатаев Талгат Каримович", "Штатный", 5.0, None),
-    ("Султанбеков Тимур Бахытұлы", "Штатный", 5.0, None),
-    ("Сунакбаева Жадыра Рахимжановна", "Штатный", 5.0, None),
-    ("Тілен Ержігіт Аманұлы", "Штатный", 5.0, None),
-    ("Тутешов Меңдібай Ғалымжанұлы", "Штатный", 5.0, None),
-    ("Тюлеев Рустам Оспанович", "Штатный", 5.0, None),
-    ("Феллер Вячеслав Анатольевич", "Штатный", 5.0, None),
-    ("Чокпаров Руслан Назымович", "Штатный", 5.0, None),
-    ("Шавкатов Агабей Юнусович", "Штатный", 5.0, None),
-    ("Эрканбаев Сардор Артыкалиевич", "Штатный", 5.0, None),
-    ("Айдаров Дильшат Равхатович", "Тариф1", 2.0, None),
-    ("Алмасұлы Медеу Медеу", "Тариф1", 2.0, None),
-    ("Джаксыбаев Ерлан Курмангазыевич", "Тариф1", 2.0, None),
-    ("Джапарханов Таш Дылшатович", "Тариф1", 2.0, None),
-    ("Досмамбетов Азат Кайратович", "Тариф1", 2.0, None),
-    ("Мауыт Даниал Ержанұлы", "Тариф1", 2.0, None),
-    ("Рахимгалиев Салимгерей Галимжанович", "Тариф1", 2.0, None),
-    ("Айтжанов Мирас Бахтиярұлы", "АРА", None, '2026-01-05'),
-    ("Алпысбаева Динара Агибаевна", "АРА", None, '2026-01-13'),
-    ("Ганиев Ринат Шамильевич", "АРА", None, '2026-01-23'),
-    ("Егоров Фархат Александрович", "АРА", None, '2026-02-03'),
-    ("Жалгасбаев Алтынбек Жетилдикулы", "АРА", None, '2026-04-05'),
-    ("Жұмағұл Мәдияр Жақсыбайұлы", "АРА", None, '2026-05-26'),
-    ("Жумахан Сержан Бақтығалиұлы", "АРА", None, '2026-02-20'),
-    ("Исаба Дамир Серiкулы", "АРА", None, '2026-05-17'),
-    ("Қадырұлы Арман Арман", "АРА", None, '2025-11-23'),
-    ("Капар Ернур Ерболулы", "АРА", None, '2026-04-11'),
-    ("Қасымбеков Серік Мұхаметұлы", "АРА", None, '2026-03-07'),
-    ("Колыхалова Кристина Владимировна", "АРА", None, '2026-03-18'),
-    ("Қыдырәлі Дінмұхамбет Манасулы", "АРА", None, '2026-04-23'),
-    ("Мухамметхали Әли Жексенбайұлы", "АРА", None, '2026-03-27'),
-    ("Мырзахметов Медет Прiмбетулы", "АРА", None, '2026-04-28'),
-    ("Өзгелді Нұрсәулет Ғаниұлы", "АРА", None, '2026-03-18'),
-    ("Пак Андрей Афанасьевич", "АРА", None, '2026-04-28'),
-    ("Рауфов Даниял", "АРА", None, None),
-    ("Серікбай Айдын Серікбайұлы", "АРА", None, '2025-11-21'),
-    ("Сулейманов Рамиль Абдухахарович", "АРА", None, '2026-04-29'),
-    ("Хамитов Ерасыл Серiкулы", "АРА", None, None),
-    ("Шатаев Шохан Аубакирович", "АРА", None, '2026-05-26'),
+    ("Алиев Ырысбек Тажимаматович", "Штатный", 5.0, None),
+    ("Амангельдиев Бауржан Хасенулы", "Штатный", 5.0, None),
+    ("Аскаров Ернар Аскарұлы", "Штатный", 5.0, None),
+    ("Асылхан Мұхтархан Маралханұлы", "Штатный", 5.0, None),
+    ("Базаров Медель Далелканұлы", "Штатный", 5.0, None),
+    ("Баубеков Ермантой Рисдавлат Угли", "Штатный", 5.0, None),
+    ("Бауыржанұлы Сержан Serzhan", "Штатный", 5.0, None),
+    ("Бахтиярұлы Рустам", "Штатный", 5.0, None),
+    ("Бекетаев Жомарт Арипбекович", "Штатный", 5.0, None),
+    ("Биназаров Марлен Жанболатович", "Штатный", 5.0, None),
+    ("Буглеев Денис Николаевич", "Штатный", 5.0, None),
+    ("Әбділдә Арнат Талғатұлы", "Штатный", 5.0, None),
+    ("Жұмаханұлы Айдар Айдар", "Штатный", 5.0, None),
+    ("Исмаилов Серқожа Азатұлы", "Штатный", 5.0, None),
+    ("Исмаилов Оруч Муслимович", "Штатный", 5.0, None),
+    ("Казизов Алмаз Даулетбекович", "Штатный", 5.0, None),
+    ("Ким Алексей Леонидович", "Штатный", 5.0, None),
+    ("Куанишов Сағихан Талғатұлы", "Штатный", 5.0, None),
+    ("Құттыбай Арнат Алмасұлы", "Штатный", 5.0, None),
+    ("Намазов Елмир Елдарович", "Штатный", 5.0, None),
+    ("Николенко Валерий Васильевич", "Штатный", 5.0, None),
+    ("Сенцов Михаил Андреевич", "Штатный", 5.0, None),
+    ("Табылдиев Ардак Адибаевич", "Штатный", 5.0, None),
+    ("Таипов Алишер Ашимжанович", "Штатный", 5.0, None),
+    ("Ташпулатов Жасур Садуллаұлы", "Штатный", 5.0, None),
+    ("Тургунбаев Ержан Эралиевич", "Штатный", 5.0, None),
+    ("Узаков Бахтияр Халмаджанович", "Штатный", 5.0, None),
+    ("Шайзинда Нұрдәулет Асанұлы", "Штатный", 5.0, None),
+    ("Тютебаев Бауыржан Кайратович", "Штатный2.5", 2.5, None),
+    ("Горобец Эльмира Дюсенгалиевна", "Частник", 5.0, None),
+    ("Ли Дмитрий Вилларионович", "Частник", 5.0, None),
+    ("Аубакиров Ерлан Кажмуратович", "АРА", None, "2026-04-29"),
+    ("Байтенов Шералы Султанович", "АРА", None, "2026-05-31"),
+    ("Банлоу Муса Закирович", "АРА", None, "2026-04-21"),
+    ("Джумангалиев Murat Бакытжанович", "АРА", None, "2026-05-01"),
+    ("Дюсембеков Канат Аскарович", "АРА", None, "2026-04-10"),
+    ("Ергалиев Нурлан Жолдасович", "АРА", None, "2026-01-06"),
+    ("Жорабаев Бейбит Мекембанвич", "АРА", None, "2026-06-03"),
+    ("Карабаев Беиик Суярбекович", "АРА", None, "2026-04-27"),
+    ("Кожан Магжан Кантореулы", "АРА", None, "2026-04-13"),
+    ("Куандыков Ерлан Сапарбекович", "АРА", None, "2026-01-23"),
+    ("Кызайбаев Бахытжан Асембаевич", "АРА", None, "2026-03-27"),
+    ("Омирсериков Мухит Омирсерикулы", "АРА", None, "2026-04-18"),
+    ("Пахриддинұлы Хайриддин", "АРА", None, "2026-04-10"),
+    ("Рагчааулы Ерболат", "АРА", None, None),
+    ("Саду Аян", "АРА", None, None),
+    ("Сламия Әлішер Асанұлы", "АРА", None, "2026-05-10"),
+    ("Танаткан Бактияр Маратулы", "АРА", None, "2026-03-05"),
+    ("Хамраев Исак", "АРА", None, "2026-04-15"),
+    ("Шахметова Айжан Мараткызы", "АРА", None, None),
 ]
 
 TARIFF_SHEET_NAME = "Тарифы"
@@ -689,34 +674,42 @@ def _get_payment_obj(o: dict) -> dict:
 def safe_amount(o: dict) -> float:
     p = _get_payment_obj(o)
 
-    # возможные места
-    candidates = [
-        p.get("amount"),
-        p.get("total"),
-        p.get("value"),
-        (o.get("order") or {}).get("cost"),
-        (o.get("order") or {}).get("price"),
-        o.get("cost"),
-        o.get("price"),
-        o.get("amount"),
-    ]
-
-    for v in candidates:
-        if v is None:
-            continue
-        if isinstance(v, dict):
+    def extract_val(obj):
+        if obj is None:
+            return 0.0
+        if isinstance(obj, dict):
             for k in ("amount", "total", "value", "price"):
-                if v.get(k) is not None:
+                if obj.get(k) is not None:
                     try:
-                        return float(v[k])
+                        return float(obj[k])
                     except Exception:
                         pass
         else:
             try:
-                return float(v)
+                return float(obj)
             except Exception:
                 pass
-    return 0.0
+        return 0.0
+
+    # Основная оплата за поездку
+    payment_amount = extract_val(p.get("amount") or p.get("total") or p.get("value"))
+    if payment_amount == 0.0:
+        for key in ("cost", "price", "amount"):
+            v = (o.get("order") or {}).get(key) or o.get(key)
+            payment_amount = extract_val(v)
+            if payment_amount > 0:
+                break
+
+    # Чаевые
+    tip = extract_val((o.get("tip") or {}).get("amount"))
+
+    # Бонус
+    bonus = extract_val((o.get("bonus") or {}).get("amount"))
+
+    # Компенсация промоакций
+    promo = extract_val((o.get("promotion") or {}).get("amount"))
+
+    return payment_amount + tip + bonus + promo
 
 def pay_type(o: dict) -> str:
     # Fleet API часто отдаёт payment_method на верхнем уровне
@@ -934,8 +927,8 @@ def get_month_totals_sync(day_date) -> tuple:
     return total_orders, total_net
 
 
-def get_month_totals_from_sheets(day_date) -> tuple:
-    """Суммирует поездки и выручку за текущий месяц из Google Sheets (листы по датам)."""
+def get_month_totals_from_sheets(day_date, tariffs: dict = None) -> tuple:
+    """Суммирует поездки, выручку и доход парка за текущий месяц из Google Sheets (листы по датам)."""
     import datetime as dt_mod
     try:
         gc = gs_client()
@@ -943,6 +936,7 @@ def get_month_totals_from_sheets(day_date) -> tuple:
         month_prefix = day_date.strftime("%Y-%m")
         total_orders = 0
         total_net = 0.0
+        total_park = 0.0
         for ws in sh.worksheets():
             title = ws.title.strip()
             if not title.startswith(month_prefix):
@@ -957,20 +951,26 @@ def get_month_totals_from_sheets(day_date) -> tuple:
             for row in values[1:]:
                 if len(row) >= 5:
                     try:
+                        fio = str(row[0]).strip()
                         orders_val = int(row[2]) if str(row[2]).strip() else 0
                         net_str = str(row[4]).replace(",", "").replace(" ", "").strip()
                         net_val = float(net_str) if net_str else 0.0
                         total_orders += orders_val
                         total_net += net_val
+                        if tariffs and fio:
+                            pct = get_driver_percent(fio, tariffs, sheet_date)
+                        else:
+                            pct = PARK_COMMISSION_PERCENT
+                        total_park += net_val * (pct / 100)
                     except Exception:
                         pass
-        return total_orders, total_net
+        return total_orders, total_net, total_park
     except Exception as e:
         log.warning("get_month_totals_from_sheets error: %s", e)
-        return 0, 0.0
+        return 0, 0.0, 0.0
 
 
-def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0, tariffs: Optional[Dict[str, dict]] = None) -> str:
+def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0, tariffs: Optional[Dict[str, dict]] = None, month_park_income: float = 0.0) -> str:
     import datetime as dt_mod
     total_orders = sum(a.done for a in agg.values())
     total_net = sum(a.net for a in agg.values())
@@ -1034,7 +1034,7 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: 
     text += "\n"
 
     if month_orders > 0:
-        month_park = month_net * (PARK_COMMISSION_PERCENT / 100)
+        month_park = month_park_income if month_park_income > 0 else month_net * (PARK_COMMISSION_PERCENT / 100)
         text += (
             f"\n📆 <b>Итого с начала месяца:</b>\n"
             f"   Поездок: <b>{month_orders:,}</b>\n"
@@ -1096,10 +1096,10 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     # Считаем итог с начала месяца из Google Sheets
     import asyncio
-    month_orders, month_net = await asyncio.to_thread(get_month_totals_from_sheets, day_date)
+    month_orders, month_net, month_park_income = await asyncio.to_thread(get_month_totals_from_sheets, day_date, tariffs)
     tariffs = await asyncio.to_thread(load_tariffs)
 
-    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs) + warn, parse_mode=ParseMode.HTML)
+    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs, month_park_income) + warn, parse_mode=ParseMode.HTML)
     with open(csv_path, "rb") as f:
         await bot.send_document(chat_id=send_to_chat_id, document=f, caption=f"CSV за {day_str}")
 
@@ -1250,19 +1250,36 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
-            total_orders, total_net, driver_net = await fetch_range_data(month_start, month_end, directory)
-            park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+            tariffs = await asyncio.to_thread(load_tariffs)
+            total_orders, total_net, driver_net, park_income, tariff_groups = await fetch_range_data(month_start, month_end, directory, tariffs)
             avg_check = total_net / total_orders if total_orders else 0
+
+            group_emoji = {"Штатные": "👔", "АРА": "🆕", "Тариф1": "2️⃣", "Другие": "📋"}
+            tariff_lines = ""
+            for gname, gdata in tariff_groups.items():
+                if gdata["net"] == 0:
+                    continue
+                tariff_lines += f"{group_emoji.get(gname, '•')} {gname}: выручка <b>{gdata['net']:,.0f}</b> → доход парка <b>{gdata['park']:,.0f}</b>\n"
+
             summary = (
                 f"📆 <b>Отчёт за {month_name}</b>\n\n"
                 f"✅ Заказов: <b>{total_orders}</b>\n"
                 f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
                 f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
                 f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
-                f"👤 Водителей: <b>{len(driver_net)}</b>"
+                f"👤 Водителей: <b>{len(driver_net)}</b>\n\n"
+                f"📂 <b>По тарифам:</b>\n{tariff_lines}"
             )
             await context.bot.send_message(chat_id=chat_id, text=summary, parse_mode=ParseMode.HTML)
             await send_all_drivers(context.bot, chat_id, driver_net, f"Все водители за {month_name}", None)
+
+        elif q.data == "staff:yesterday":
+            await q.edit_message_text("⏳ Считаю отчёт по штатным за вчера...")
+            await _send_staff_report(yesterday, chat_id, context.bot)
+
+        elif q.data == "staff:today":
+            await q.edit_message_text("⏳ Считаю отчёт по штатным за сегодня...")
+            await _send_staff_report(now_dubai, chat_id, context.bot)
 
         elif q.data == "rep:top":
             await q.edit_message_text("⏳ Считаю ТОП водителей...")
@@ -1551,6 +1568,25 @@ async def _send_staff_report(day_date, chat_id: int, bot):
         log.exception("_send_staff_report send list error")
         await bot.send_message(chat_id=chat_id, text=f"⚠ Ошибка при отправке списка водителей: {e}")
 
+    # Список тех кто не работал в этот день
+    try:
+        all_staff_fios = [
+            fio for fio, info in tariffs.items()
+            if (info.get("tariff") or "").strip().lower() in ("штатный", "штатный2.5")
+        ]
+        not_worked = [fio for fio in all_staff_fios if fio not in staff_agg]
+        if not_worked:
+            lines = "\n".join(f"• {fio}" for fio in sorted(not_worked))
+            await bot.send_message(
+                chat_id=chat_id,
+                text=f"😴 <b>Не работали {day_str} ({len(not_worked)} чел.):</b>\n\n{lines}",
+                parse_mode=ParseMode.HTML,
+                reply_markup=MAIN_KEYBOARD,
+            )
+    except Exception as e:
+        log.exception("_send_staff_report not_worked error")
+
+
 
 async def cmd_staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1630,7 +1666,7 @@ async def fetch_day_data(d, directory):
     return await asyncio.to_thread(_sync)
 
 
-async def fetch_range_data(start_date, end_date, directory):
+async def fetch_range_data(start_date, end_date, directory, tariffs: dict = None):
     """Параллельно загружает данные за все дни диапазона."""
     import asyncio
     days = []
@@ -1641,16 +1677,44 @@ async def fetch_range_data(start_date, end_date, directory):
     results = await asyncio.gather(*[fetch_day_data(d, directory) for d in days], return_exceptions=True)
     total_orders = 0
     total_net = 0.0
+    total_park = 0.0
     driver_net = {}
-    for agg in results:
+    # разбивка по тарифам: группа -> {net, park}
+    tariff_groups = {
+        "Штатные": {"net": 0.0, "park": 0.0},
+        "АРА": {"net": 0.0, "park": 0.0},
+        "Тариф1": {"net": 0.0, "park": 0.0},
+        "Другие": {"net": 0.0, "park": 0.0},
+    }
+    tariffs = tariffs or {}
+    for i, agg in enumerate(results):
         if isinstance(agg, Exception):
             log.warning(f"Day fetch error: {agg}")
             continue
+        day_date = days[i]
         for a in agg.values():
             total_orders += a.done
             total_net += a.net
             driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
-    return total_orders, total_net, driver_net
+            pct = get_driver_percent(a.fio, tariffs, day_date) if tariffs else PARK_COMMISSION_PERCENT
+            park_val = a.net * (pct / 100)
+            total_park += park_val
+            info = tariffs.get(a.fio)
+            if info is None:
+                group = "Штатные"
+            else:
+                t = (info.get("tariff") or "").strip().lower()
+                if t in ("штатный", "штатный2.5"):
+                    group = "Штатные"
+                elif t == "ара":
+                    group = "АРА"
+                elif t == "тариф1":
+                    group = "Тариф1"
+                else:
+                    group = "Другие"
+            tariff_groups[group]["net"] += a.net
+            tariff_groups[group]["park"] += park_val
+    return total_orders, total_net, driver_net, total_park, tariff_groups
 
 
 async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1681,17 +1745,24 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
-            total_orders, total_net, driver_net = await fetch_range_data(start_date, end_date, directory)
-            park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+            tariffs_10 = await asyncio.to_thread(load_tariffs)
+            total_orders, total_net, driver_net, park_income, tariff_groups = await fetch_range_data(start_date, end_date, directory, tariffs_10)
             avg_check = total_net / total_orders if total_orders else 0
             date_range = f"{start_date} – {end_date}"
+            group_emoji = {"Штатные": "👔", "АРА": "🆕", "Тариф1": "2️⃣", "Другие": "📋"}
+            tariff_lines = ""
+            for gname, gdata in tariff_groups.items():
+                if gdata["net"] == 0:
+                    continue
+                tariff_lines += f"{group_emoji.get(gname, '•')} {gname}: выручка <b>{gdata['net']:,.0f}</b> → доход парка <b>{gdata['park']:,.0f}</b>\n"
             summary = (
                 f"📅 <b>Отчёт за 10 дней ({date_range})</b>\n\n"
                 f"✅ Заказов: <b>{total_orders}</b>\n"
                 f"💰 Выручка: <b>{total_net:,.0f}</b>\n"
                 f"🏦 Доход таксопарка: <b>{park_income:,.0f}</b>\n"
                 f"📊 Средний чек: <b>{avg_check:,.0f}</b>\n"
-                f"👤 Водителей: <b>{len(driver_net)}</b>"
+                f"👤 Водителей: <b>{len(driver_net)}</b>\n\n"
+                f"📂 <b>По тарифам:</b>\n{tariff_lines}"
             )
             await update.message.reply_text(summary, parse_mode=ParseMode.HTML)
             await send_all_drivers(bot, chat_id, driver_net, "Все водители за 10 дней", MAIN_KEYBOARD)
@@ -1716,7 +1787,13 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Выбери месяц:", reply_markup=kb)
 
         elif "штатные" in text.lower():
-            await _send_staff_report(yesterday, chat_id, bot)
+            kb = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("📊 За вчера", callback_data="staff:yesterday"),
+                    InlineKeyboardButton("📈 За сегодня", callback_data="staff:today"),
+                ]
+            ])
+            await update.message.reply_text("Выбери период:", reply_markup=kb)
 
         elif "топ" in text.lower():
             await update.message.reply_text("⏳ Считаю ТОП водителей...")
