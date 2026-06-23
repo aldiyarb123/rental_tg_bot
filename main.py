@@ -1096,8 +1096,8 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     # Считаем итог с начала месяца из Google Sheets
     import asyncio
-    month_orders, month_net, month_park_income = await asyncio.to_thread(get_month_totals_from_sheets, day_date, tariffs)
     tariffs = await asyncio.to_thread(load_tariffs)
+    month_orders, month_net, month_park_income = await asyncio.to_thread(get_month_totals_from_sheets, day_date, tariffs)
 
     await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs, month_park_income) + warn, parse_mode=ParseMode.HTML)
     with open(csv_path, "rb") as f:
