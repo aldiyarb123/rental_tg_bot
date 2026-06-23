@@ -602,7 +602,7 @@ def calc_park_income_individual(agg: Dict[str, "DriverAgg"], tariffs: Dict[str, 
     total = 0.0
     for fio, a in agg.items():
         pct = get_driver_percent(fio, tariffs, for_date)
-        total += a.net * (pct / 100)
+        total += a.base * (pct / 100)
     return total
 
 
@@ -658,7 +658,8 @@ class DriverAgg:
     callsign: str
     plate: str
     done: int
-    net: float
+    net: float       # общая выручка (включая чаевые/бонусы/промо) — для отображения
+    base: float      # только сумма заказов — база для расчёта % парка
     cash: float
     cashless: float
     line_seconds: float
@@ -671,7 +672,11 @@ def _get_payment_obj(o: dict) -> dict:
         return o["order"]["payment"]
     return {}
 
-def safe_amount(o: dict) -> float:
+def safe_amount(o: dict) -> tuple:
+    """Возвращает (base_amount, total_amount).
+    base_amount — сумма заказа (основа для % парка).
+    total_amount — выручка включая чаевые, бонусы, промо (для отображения).
+    """
     p = _get_payment_obj(o)
 
     def extract_val(obj):
@@ -691,7 +696,7 @@ def safe_amount(o: dict) -> float:
                 pass
         return 0.0
 
-    # Основная оплата за поездку
+    # Основная оплата за поездку (база для % парка)
     payment_amount = extract_val(p.get("amount") or p.get("total") or p.get("value"))
     if payment_amount == 0.0:
         for key in ("cost", "price", "amount"):
@@ -700,16 +705,12 @@ def safe_amount(o: dict) -> float:
             if payment_amount > 0:
                 break
 
-    # Чаевые
+    # Чаевые, бонус, промо — добавляются к общей выручке но не к базе %
     tip = extract_val((o.get("tip") or {}).get("amount"))
-
-    # Бонус
     bonus = extract_val((o.get("bonus") or {}).get("amount"))
-
-    # Компенсация промоакций
     promo = extract_val((o.get("promotion") or {}).get("amount"))
 
-    return payment_amount + tip + bonus + promo
+    return payment_amount, payment_amount + tip + bonus + promo
 
 def pay_type(o: dict) -> str:
     # Fleet API часто отдаёт payment_method на верхнем уровне
@@ -788,13 +789,14 @@ def build_report_rows(day_str: str, orders: List[dict], directory: Dict[str, dic
                 plate=plate,
                 done=0,
                 net=0.0,
+                base=0.0,
                 cash=0.0,
                 cashless=0.0,
                 line_seconds=0.0,
                 balance=0.0,
             )
 
-        amount = safe_amount(o)
+        amount_base, amount_total = safe_amount(o)
 
         # -------- баланс водителя из API если есть --------
         driver_balance = None
@@ -832,14 +834,15 @@ def build_report_rows(day_str: str, orders: List[dict], directory: Dict[str, dic
         t = pay_type(o)
 
         agg[key].done += 1
-        agg[key].net += amount
+        agg[key].net += amount_total
+        agg[key].base += amount_base
         agg[key].line_seconds += duration_sec
         if driver_balance is not None:
             agg[key].balance = driver_balance
         if "cash" in t or "нал" in t:
-            agg[key].cash += amount
+            agg[key].cash += amount_total
         else:
-            agg[key].cashless += amount
+            agg[key].cashless += amount_total
 
     rows_sorted = sorted(agg.values(), key=lambda x: x.net, reverse=True)
 
@@ -1698,7 +1701,7 @@ async def fetch_range_data(start_date, end_date, directory, tariffs: dict = None
             total_net += a.net
             driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
             pct = get_driver_percent(a.fio, tariffs_map, day_date) if tariffs_map else PARK_COMMISSION_PERCENT
-            park_val = a.net * (pct / 100)
+            park_val = a.base * (pct / 100)
             total_park += park_val
             info = tariffs_map.get(a.fio)
             if info is None:
