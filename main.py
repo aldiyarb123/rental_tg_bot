@@ -1361,20 +1361,31 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
         endpoints = [
             ("v2 transactions", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
                 "query": {
-                    "park": {"id": PARK_ID},
-                    "performed_at": {
-                        "from": "2026-05-01T00:00:00+04:00",
-                        "to": "2026-05-01T23:59:59+04:00"
+                    "park": {
+                        "id": PARK_ID,
+                        "order": {
+                            "performed_at": {
+                                "from": "2026-05-01T00:00:00+04:00",
+                                "to": "2026-05-01T23:59:59+04:00"
+                            }
+                        }
                     }
                 },
                 "limit": 3
             }),
-            ("v1 transactions", "https://fleet-api.taxi.yandex.net/v1/parks/transactions/list", {
+            ("v2 transactions category", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
                 "query": {
-                    "park": {"id": PARK_ID},
-                    "created_at": {
-                        "from": "2026-05-01T00:00:00+04:00",
-                        "to": "2026-05-01T23:59:59+04:00"
+                    "park": {
+                        "id": PARK_ID,
+                        "order": {
+                            "performed_at": {
+                                "from": "2026-05-01T00:00:00+04:00",
+                                "to": "2026-05-01T23:59:59+04:00"
+                            },
+                            "transaction": {
+                                "category": "partner_commission"
+                            }
+                        }
                     }
                 },
                 "limit": 3
