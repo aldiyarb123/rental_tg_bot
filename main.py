@@ -1005,9 +1005,9 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: 
         "Тариф1": {"orders": 0, "net": 0.0, "count": 0},
         "Другие": {"orders": 0, "net": 0.0, "count": 0},
     }
-    tariffs = tariffs or {}
+    tariffs_map = tariffs or {}
     for fio, a in agg.items():
-        info = tariffs.get(fio)
+        info = tariffs_map.get(fio)
         if info is None:
             group = "Штатные"
         else:
@@ -1955,3 +1955,4 @@ if __name__ == "__main__":
     app = build_app()
     log.info("Bot started. Кнопки без /start. Авто-отчёт в 09:00 Dubai.")
     app.run_polling(close_loop=False)
+    
