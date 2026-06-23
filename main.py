@@ -1922,7 +1922,6 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("testtransactions", cmd_testtransactions))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
