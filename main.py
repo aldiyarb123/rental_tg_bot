@@ -1349,6 +1349,54 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
 
 
+async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Тестирует API транзакций Яндекс Fleet для получения комиссии партнера."""
+    import asyncio
+    await update.message.reply_text("⏳ Тестирую API транзакций...")
+
+    def _test():
+        import datetime as dt_mod
+        results = []
+        # Пробуем несколько эндпоинтов
+        endpoints = [
+            ("v2 transactions", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
+                "query": {
+                    "park": {"id": PARK_ID},
+                    "performed_at": {
+                        "from": "2026-05-01T00:00:00+04:00",
+                        "to": "2026-05-01T23:59:59+04:00"
+                    }
+                },
+                "limit": 3
+            }),
+            ("v1 transactions", "https://fleet-api.taxi.yandex.net/v1/parks/transactions/list", {
+                "query": {
+                    "park": {"id": PARK_ID},
+                    "created_at": {
+                        "from": "2026-05-01T00:00:00+04:00",
+                        "to": "2026-05-01T23:59:59+04:00"
+                    }
+                },
+                "limit": 3
+            }),
+        ]
+        with requests.Session() as session:
+            for name, url, payload in endpoints:
+                try:
+                    r = session.post(url, headers=fleet_headers(), json=payload, timeout=15)
+                    results.append(f"**{name}**: {r.status_code}\n{r.text[:300]}")
+                except Exception as e:
+                    results.append(f"**{name}**: ERROR {e}")
+        return results
+
+    try:
+        results = await asyncio.to_thread(_test)
+        for res in results:
+            await update.message.reply_text(res[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"⚠ Ошибка: {e}")
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "📋 <b>Список команд</b>\n\n"
@@ -1869,6 +1917,7 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("testtransactions", cmd_testtransactions))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
