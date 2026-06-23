@@ -1250,6 +1250,7 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
+            import asyncio
             tariffs = await asyncio.to_thread(load_tariffs)
             total_orders, total_net, driver_net, park_income, tariff_groups = await fetch_range_data(month_start, month_end, directory, tariffs)
             avg_check = total_net / total_orders if total_orders else 0
@@ -1745,6 +1746,7 @@ async def on_text_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 directory = load_driver_directory()
             except Exception:
                 directory = {}
+            import asyncio
             tariffs_10 = await asyncio.to_thread(load_tariffs)
             total_orders, total_net, driver_net, park_income, tariff_groups = await fetch_range_data(start_date, end_date, directory, tariffs_10)
             avg_check = total_net / total_orders if total_orders else 0
