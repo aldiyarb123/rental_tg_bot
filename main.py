@@ -1359,36 +1359,30 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
         results = []
         # Пробуем несколько эндпоинтов
         endpoints = [
-            ("v2 transactions", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
+            ("v1 driver-transactions", "https://fleet-api.taxi.yandex.net/v1/parks/driver-transactions/list", {
                 "query": {
-                    "park": {
-                        "id": PARK_ID,
-                        "order": {
-                            "performed_at": {
-                                "from": "2026-05-01T00:00:00+04:00",
-                                "to": "2026-05-01T23:59:59+04:00"
-                            }
+                    "park": {"id": PARK_ID},
+                    "transaction": {
+                        "performed_at": {
+                            "from": "2026-05-01T00:00:00+04:00",
+                            "to": "2026-05-01T23:59:59+04:00"
                         }
                     }
                 },
                 "limit": 3
             }),
-            ("v2 transactions category", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
-                "query": {
-                    "park": {
-                        "id": PARK_ID,
-                        "order": {
-                            "performed_at": {
-                                "from": "2026-05-01T00:00:00+04:00",
-                                "to": "2026-05-01T23:59:59+04:00"
-                            },
-                            "transaction": {
-                                "category": "partner_commission"
-                            }
-                        }
-                    }
-                },
+            ("v1 financial-data", "https://fleet-api.taxi.yandex.net/v1/parks/financial-data/orders", {
+                "park_id": PARK_ID,
+                "from": "2026-05-01T00:00:00+04:00",
+                "to": "2026-05-01T23:59:59+04:00",
                 "limit": 3
+            }),
+            ("v2 analytics", "https://fleet-api.taxi.yandex.net/v2/parks/analytics/aggregates", {
+                "park_id": PARK_ID,
+                "interval": {
+                    "from": "2026-05-01T00:00:00+04:00",
+                    "to": "2026-05-01T23:59:59+04:00"
+                }
             }),
         ]
         with requests.Session() as session:
