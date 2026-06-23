@@ -1686,7 +1686,7 @@ async def fetch_range_data(start_date, end_date, directory, tariffs: dict = None
         "Тариф1": {"net": 0.0, "park": 0.0},
         "Другие": {"net": 0.0, "park": 0.0},
     }
-    tariffs = tariffs or {}
+    tariffs_map = tariffs or {}
     for i, agg in enumerate(results):
         if isinstance(agg, Exception):
             log.warning(f"Day fetch error: {agg}")
@@ -1696,10 +1696,10 @@ async def fetch_range_data(start_date, end_date, directory, tariffs: dict = None
             total_orders += a.done
             total_net += a.net
             driver_net[a.fio] = driver_net.get(a.fio, 0.0) + a.net
-            pct = get_driver_percent(a.fio, tariffs, day_date) if tariffs else PARK_COMMISSION_PERCENT
+            pct = get_driver_percent(a.fio, tariffs_map, day_date) if tariffs_map else PARK_COMMISSION_PERCENT
             park_val = a.net * (pct / 100)
             total_park += park_val
-            info = tariffs.get(a.fio)
+            info = tariffs_map.get(a.fio)
             if info is None:
                 group = "Штатные"
             else:
@@ -1955,4 +1955,3 @@ if __name__ == "__main__":
     app = build_app()
     log.info("Bot started. Кнопки без /start. Авто-отчёт в 09:00 Dubai.")
     app.run_polling(close_loop=False)
-    
