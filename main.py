@@ -1402,7 +1402,7 @@ def fetch_partner_commission(session: requests.Session, order_ids: List[str]) ->
             if r and r.status_code == 200:
                 txs = r.json().get("transactions", [])
                 for tx in txs:
-                    if tx.get("category_id") == "partner_ride_fee":
+                    if tx.get("category_id") in ("partner_ride_fee", "partner_bonus_fee"):
                         try:
                             total += abs(float(tx.get("amount", 0)))
                         except Exception:
