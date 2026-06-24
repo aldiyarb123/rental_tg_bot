@@ -1374,6 +1374,69 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
 
 
+async def cmd_testtx2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Тестирует получение комиссии партнёра напрямую по дате через разные эндпоинты."""
+    import asyncio
+    await update.message.reply_text("⏳ Тестирую...")
+
+    def _test():
+        results = []
+        with requests.Session() as session:
+            # Пробуем получить транзакции по дате напрямую без order_ids
+            endpoints = [
+                ("driver-profiles transactions", "https://fleet-api.taxi.yandex.net/v1/parks/driver-profiles/transactions/list", {
+                    "query": {
+                        "park": {"id": PARK_ID},
+                        "transaction": {
+                            "event_at": {
+                                "from": "2026-06-23T00:00:00+04:00",
+                                "to": "2026-06-23T23:59:59+04:00"
+                            },
+                            "category": {"id": "partner_ride_fee"}
+                        }
+                    },
+                    "limit": 500
+                }),
+                ("v2 transactions by event_at", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
+                    "query": {
+                        "park": {
+                            "id": PARK_ID,
+                            "transaction": {
+                                "event_at": {
+                                    "from": "2026-06-23T00:00:00+04:00",
+                                    "to": "2026-06-23T23:59:59+04:00"
+                                }
+                            }
+                        }
+                    },
+                    "limit": 3
+                }),
+                ("v1 transactions list", "https://fleet-api.taxi.yandex.net/v1/parks/transactions/list", {
+                    "park_id": PARK_ID,
+                    "event_at": {
+                        "from": "2026-06-23T00:00:00+04:00",
+                        "to": "2026-06-23T23:59:59+04:00"
+                    },
+                    "category_id": "partner_ride_fee",
+                    "limit": 3
+                }),
+            ]
+            for name, url, payload in endpoints:
+                try:
+                    r = session.post(url, headers=fleet_headers(), json=payload, timeout=15)
+                    results.append(f"**{name}**: {r.status_code}\n{r.text[:400]}")
+                except Exception as e:
+                    results.append(f"**{name}**: ERROR {e}")
+        return results
+
+    try:
+        results = await asyncio.to_thread(_test)
+        for res in results:
+            await update.message.reply_text(res[:4000])
+    except Exception as e:
+        await update.message.reply_text(f"⚠ Ошибка: {e}")
+
+
 def fetch_partner_commission(session: requests.Session, order_ids: List[str]) -> float:
     """
     Получает реальную комиссию партнёра (доход парка) из Yandex Fleet API
@@ -1934,6 +1997,7 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("testtx2", cmd_testtx2))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
