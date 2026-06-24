@@ -1359,30 +1359,28 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
         results = []
         # Пробуем несколько эндпоинтов
         endpoints = [
-            ("v1 driver-transactions", "https://fleet-api.taxi.yandex.net/v1/parks/driver-transactions/list", {
+            ("v2 transactions booked_at", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
                 "query": {
-                    "park": {"id": PARK_ID},
-                    "transaction": {
-                        "performed_at": {
-                            "from": "2026-05-01T00:00:00+04:00",
-                            "to": "2026-05-01T23:59:59+04:00"
+                    "park": {
+                        "id": PARK_ID,
+                        "order": {
+                            "booked_at": {
+                                "from": "2026-05-01T00:00:00+04:00",
+                                "to": "2026-05-01T23:59:59+04:00"
+                            }
                         }
                     }
                 },
                 "limit": 3
             }),
-            ("v1 financial-data", "https://fleet-api.taxi.yandex.net/v1/parks/financial-data/orders", {
+            ("v1 financial summary", "https://fleet-api.taxi.yandex.net/v1/parks/orders/analytics", {
                 "park_id": PARK_ID,
                 "from": "2026-05-01T00:00:00+04:00",
-                "to": "2026-05-01T23:59:59+04:00",
-                "limit": 3
+                "to": "2026-05-01T23:59:59+04:00"
             }),
-            ("v2 analytics", "https://fleet-api.taxi.yandex.net/v2/parks/analytics/aggregates", {
+            ("v2 driver-work-rules", "https://fleet-api.taxi.yandex.net/v2/parks/driver-work-rules/list", {
                 "park_id": PARK_ID,
-                "interval": {
-                    "from": "2026-05-01T00:00:00+04:00",
-                    "to": "2026-05-01T23:59:59+04:00"
-                }
+                "limit": 3
             }),
         ]
         with requests.Session() as session:
@@ -1922,6 +1920,7 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("testtransactions", cmd_testtransactions))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
