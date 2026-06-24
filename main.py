@@ -1357,64 +1357,59 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
     def _test():
         import datetime as dt_mod
         results = []
-        # Пробуем несколько эндпоинтов
-        # Сначала получим реальные ID заказов за день
         order_ids = []
-        try:
-            from datetime import date
-            test_date = date(2026, 6, 22)
-            time_from, time_to, from_dt, to_dt = None, None, None, None
-            import datetime as dt_mod
-            DUBAI_TZ_local = __import__('zoneinfo').ZoneInfo("Asia/Dubai")
-            start_dt = dt_mod.datetime(2026, 6, 22, 0, 0, 0, tzinfo=DUBAI_TZ_local)
-            end_dt = dt_mod.datetime(2026, 6, 22, 23, 59, 59, tzinfo=DUBAI_TZ_local)
-            time_from = start_dt.isoformat()
-            time_to = end_dt.isoformat()
 
-            payload_orders = {
-                "limit": 5,
-                "query": {
-                    "park": {
-                        "id": PARK_ID,
-                        "order": {
-                            "booked_at": {"from": time_from, "to": time_to},
-                        },
-                    }
-                },
-                "fields": {"order": ["id", "status"]},
-            }
-            r_orders = session.post(
-                "https://fleet-api.taxi.yandex.net/v1/parks/orders/list",
-                headers=fleet_headers(), json=payload_orders, timeout=15
-            )
-            if r_orders.status_code == 200:
-                items = r_orders.json().get("orders") or []
-                order_ids = [o.get("id") for o in items if o.get("id")][:3]
-        except Exception as e:
-            results.append(f"Не смог получить order_ids: {e}")
-
-        endpoints = []
-        if order_ids:
-            endpoints.append(("v2 transactions with ids", "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", {
-                "query": {
-                    "park": {
-                        "id": PARK_ID,
-                        "order": {
-                            "ids": order_ids
-                        }
-                    }
-                },
-                "limit": 10
-            }))
-        else:
-            results.append("order_ids пустой — не смогли получить заказы")
         with requests.Session() as session:
-            for name, url, payload in endpoints:
+            # Шаг 1: получаем реальные ID заказов
+            try:
+                DUBAI_TZ_local = __import__('zoneinfo').ZoneInfo("Asia/Dubai")
+                start_dt = dt_mod.datetime(2026, 6, 22, 0, 0, 0, tzinfo=DUBAI_TZ_local)
+                end_dt = dt_mod.datetime(2026, 6, 22, 23, 59, 59, tzinfo=DUBAI_TZ_local)
+                payload_orders = {
+                    "limit": 5,
+                    "query": {
+                        "park": {
+                            "id": PARK_ID,
+                            "order": {
+                                "booked_at": {"from": start_dt.isoformat(), "to": end_dt.isoformat()},
+                            },
+                        }
+                    },
+                    "fields": {"order": ["id", "status"]},
+                }
+                r_orders = session.post(
+                    "https://fleet-api.taxi.yandex.net/v1/parks/orders/list",
+                    headers=fleet_headers(), json=payload_orders, timeout=15
+                )
+                if r_orders.status_code == 200:
+                    items = r_orders.json().get("orders") or []
+                    order_ids = [o.get("id") for o in items if o.get("id")][:3]
+                    results.append(f"Получено order_ids: {order_ids}")
+                else:
+                    results.append(f"orders/list: {r_orders.status_code} {r_orders.text[:200]}")
+            except Exception as e:
+                results.append(f"Не смог получить order_ids: {e}")
+
+            # Шаг 2: запрашиваем транзакции по ID заказов
+            if order_ids:
                 try:
-                    r = session.post(url, headers=fleet_headers(), json=payload, timeout=15)
-                    results.append(f"**{name}**: {r.status_code}\n{r.text[:300]}")
+                    payload_tx = {
+                        "query": {
+                            "park": {
+                                "id": PARK_ID,
+                                "order": {"ids": order_ids}
+                            }
+                        },
+                        "limit": 10
+                    }
+                    r_tx = session.post(
+                        "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list",
+                        headers=fleet_headers(), json=payload_tx, timeout=15
+                    )
+                    results.append(f"v2 transactions: {r_tx.status_code}\n{r_tx.text[:1000]}")
                 except Exception as e:
-                    results.append(f"**{name}**: ERROR {e}")
+                    results.append(f"transactions ERROR: {e}")
+
         return results
 
     try:
