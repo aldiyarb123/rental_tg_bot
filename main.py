@@ -1085,15 +1085,21 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     with requests.Session() as session:
         orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
+        # Для транзакций берём чуть расширенное окно (±2ч) чтобы захватить граничные заказы
+        import datetime as dt_mod
+        tx_from = (from_dt - timedelta(hours=2)).isoformat()
+        tx_to = (to_dt + timedelta(hours=2)).isoformat()
+        # Собираем ID всех заказов за расширенный период
+        extra_orders = orders_list_all(session, tx_from, tx_to, from_dt - timedelta(hours=2), to_dt + timedelta(hours=2))
+        all_order_ids = list({o.get("id") for o in (orders + extra_orders) if o.get("id")})
         try:
             balances = fetch_driver_balances(session)
         except Exception as e:
             log.warning("fetch_driver_balances failed: %s", e)
             balances = {}
-        # Получаем реальную комиссию партнёра из Яндекс API
+        # Получаем реальную комиссию партнёра из Яндекс API с фильтром по event_at
         try:
-            order_ids = [o.get("id") for o in orders if o.get("id")]
-            real_park_income = fetch_partner_commission(session, order_ids)
+            real_park_income = fetch_partner_commission(session, all_order_ids, time_from, time_to)
         except Exception as e:
             log.warning("fetch_partner_commission failed: %s", e)
             real_park_income = 0.0
@@ -1437,17 +1443,15 @@ async def cmd_testtx2(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠ Ошибка: {e}")
 
 
-def fetch_partner_commission(session: requests.Session, order_ids: List[str]) -> float:
+def fetch_partner_commission(session: requests.Session, order_ids: List[str], day_from: str = None, day_to: str = None) -> float:
     """
-    Получает реальную комиссию партнёра (доход парка) из Yandex Fleet API
-    по списку ID заказов через category_id = 'partner_ride_fee'.
-    Возвращает сумму (положительное число).
+    Получает реальную комиссию партнёра из Yandex Fleet API.
+    Фильтрует по event_at чтобы точно совпадать с Fleet транзакционным отчётом.
     """
     if not order_ids:
         return 0.0
 
     total = 0.0
-    # Обрабатываем по 100 заказов за раз (лимит API)
     chunk_size = 100
     for i in range(0, len(order_ids), chunk_size):
         chunk = order_ids[i:i + chunk_size]
@@ -1465,11 +1469,26 @@ def fetch_partner_commission(session: requests.Session, order_ids: List[str]) ->
             if r and r.status_code == 200:
                 txs = r.json().get("transactions", [])
                 for tx in txs:
-                    if tx.get("category_id") in ("partner_ride_fee", "partner_bonus_fee"):
-                        try:
-                            total += abs(float(tx.get("amount", 0)))
-                        except Exception:
-                            pass
+                    if tx.get("category_id") not in ("partner_ride_fee", "partner_bonus_fee"):
+                        continue
+                    # Фильтруем по event_at если передан диапазон дня
+                    if day_from and day_to:
+                        event_at = tx.get("event_at", "")
+                        if event_at:
+                            try:
+                                event_dt = parse_dt(event_at)
+                                if event_dt:
+                                    event_local = event_dt.astimezone(DUBAI_TZ)
+                                    from_dt = parse_dt(day_from).astimezone(DUBAI_TZ)
+                                    to_dt = parse_dt(day_to).astimezone(DUBAI_TZ)
+                                    if not (from_dt <= event_local <= to_dt):
+                                        continue
+                            except Exception:
+                                pass
+                    try:
+                        total += abs(float(tx.get("amount", 0)))
+                    except Exception:
+                        pass
             time.sleep(0.2)
         except Exception as e:
             log.warning("fetch_partner_commission error: %s", e)
@@ -1997,7 +2016,6 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("testtx2", cmd_testtx2))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
