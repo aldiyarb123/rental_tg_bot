@@ -1366,7 +1366,7 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
                 start_dt = dt_mod.datetime(2026, 6, 22, 0, 0, 0, tzinfo=DUBAI_TZ_local)
                 end_dt = dt_mod.datetime(2026, 6, 22, 23, 59, 59, tzinfo=DUBAI_TZ_local)
                 payload_orders = {
-                    "limit": 5,
+                    "limit": 10,
                     "query": {
                         "park": {
                             "id": PARK_ID,
@@ -1383,14 +1383,11 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
                 )
                 if r_orders.status_code == 200:
                     items = r_orders.json().get("orders") or []
-                    order_ids = [o.get("id") for o in items if o.get("id")][:3]
-                    results.append(f"Получено order_ids: {order_ids}")
-                else:
-                    results.append(f"orders/list: {r_orders.status_code} {r_orders.text[:200]}")
+                    order_ids = [o.get("id") for o in items if o.get("id")][:10]
             except Exception as e:
-                results.append(f"Не смог получить order_ids: {e}")
+                results.append(f"orders/list error: {e}")
 
-            # Шаг 2: запрашиваем транзакции по ID заказов
+            # Шаг 2: получаем все транзакции и смотрим категории
             if order_ids:
                 try:
                     payload_tx = {
@@ -1400,13 +1397,31 @@ async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYP
                                 "order": {"ids": order_ids}
                             }
                         },
-                        "limit": 10
+                        "limit": 500
                     }
                     r_tx = session.post(
                         "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list",
                         headers=fleet_headers(), json=payload_tx, timeout=15
                     )
-                    results.append(f"v2 transactions: {r_tx.status_code}\n{r_tx.text[:1000]}")
+                    if r_tx.status_code == 200:
+                        txs = r_tx.json().get("transactions", [])
+                        # Собираем все уникальные категории с примерами сумм
+                        categories = {}
+                        for tx in txs:
+                            cat_id = tx.get("category_id", "")
+                            cat_name = tx.get("category_name", "")
+                            amount = tx.get("amount", "0")
+                            if cat_id not in categories:
+                                categories[cat_id] = {"name": cat_name, "amounts": []}
+                            categories[cat_id]["amounts"].append(float(amount))
+
+                        lines = [f"Всего транзакций: {len(txs)}\nКатегории:\n"]
+                        for cat_id, data in categories.items():
+                            total = sum(data["amounts"])
+                            lines.append(f"• {cat_id} ({data['name']}): {total:,.2f}")
+                        results.append("\n".join(lines))
+                    else:
+                        results.append(f"transactions: {r_tx.status_code} {r_tx.text[:300]}")
                 except Exception as e:
                     results.append(f"transactions ERROR: {e}")
 
