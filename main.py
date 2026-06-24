@@ -446,56 +446,71 @@ def fetch_driver_balances(session: requests.Session) -> Dict[str, float]:
 
 # ------------------- TARIFFS -------------------
 BULK_TARIFF_IMPORT = [
-    ("Алиев Ырысбек Тажимаматович", "Штатный", 5.0, None),
-    ("Амангельдиев Бауржан Хасенулы", "Штатный", 5.0, None),
-    ("Аскаров Ернар Аскарұлы", "Штатный", 5.0, None),
-    ("Асылхан Мұхтархан Маралханұлы", "Штатный", 5.0, None),
-    ("Базаров Медель Далелканұлы", "Штатный", 5.0, None),
-    ("Баубеков Ермантой Рисдавлат Угли", "Штатный", 5.0, None),
-    ("Бауыржанұлы Сержан Serzhan", "Штатный", 5.0, None),
-    ("Бахтиярұлы Рустам", "Штатный", 5.0, None),
-    ("Бекетаев Жомарт Арипбекович", "Штатный", 5.0, None),
-    ("Биназаров Марлен Жанболатович", "Штатный", 5.0, None),
-    ("Буглеев Денис Николаевич", "Штатный", 5.0, None),
-    ("Әбділдә Арнат Талғатұлы", "Штатный", 5.0, None),
-    ("Жұмаханұлы Айдар Айдар", "Штатный", 5.0, None),
-    ("Исмаилов Серқожа Азатұлы", "Штатный", 5.0, None),
-    ("Исмаилов Оруч Муслимович", "Штатный", 5.0, None),
-    ("Казизов Алмаз Даулетбекович", "Штатный", 5.0, None),
-    ("Ким Алексей Леонидович", "Штатный", 5.0, None),
-    ("Куанишов Сағихан Талғатұлы", "Штатный", 5.0, None),
-    ("Құттыбай Арнат Алмасұлы", "Штатный", 5.0, None),
-    ("Намазов Елмир Елдарович", "Штатный", 5.0, None),
-    ("Николенко Валерий Васильевич", "Штатный", 5.0, None),
-    ("Сенцов Михаил Андреевич", "Штатный", 5.0, None),
-    ("Табылдиев Ардак Адибаевич", "Штатный", 5.0, None),
-    ("Таипов Алишер Ашимжанович", "Штатный", 5.0, None),
-    ("Ташпулатов Жасур Садуллаұлы", "Штатный", 5.0, None),
-    ("Тургунбаев Ержан Эралиевич", "Штатный", 5.0, None),
-    ("Узаков Бахтияр Халмаджанович", "Штатный", 5.0, None),
-    ("Шайзинда Нұрдәулет Асанұлы", "Штатный", 5.0, None),
-    ("Тютебаев Бауыржан Кайратович", "Штатный2.5", 2.5, None),
-    ("Горобец Эльмира Дюсенгалиевна", "Частник", 5.0, None),
-    ("Ли Дмитрий Вилларионович", "Частник", 5.0, None),
-    ("Аубакиров Ерлан Кажмуратович", "АРА", None, "2026-04-29"),
-    ("Байтенов Шералы Султанович", "АРА", None, "2026-05-31"),
-    ("Банлоу Муса Закирович", "АРА", None, "2026-04-21"),
-    ("Джумангалиев Murat Бакытжанович", "АРА", None, "2026-05-01"),
-    ("Дюсембеков Канат Аскарович", "АРА", None, "2026-04-10"),
-    ("Ергалиев Нурлан Жолдасович", "АРА", None, "2026-01-06"),
-    ("Жорабаев Бейбит Мекембанвич", "АРА", None, "2026-06-03"),
-    ("Карабаев Беиик Суярбекович", "АРА", None, "2026-04-27"),
-    ("Кожан Магжан Кантореулы", "АРА", None, "2026-04-13"),
-    ("Куандыков Ерлан Сапарбекович", "АРА", None, "2026-01-23"),
-    ("Кызайбаев Бахытжан Асембаевич", "АРА", None, "2026-03-27"),
-    ("Омирсериков Мухит Омирсерикулы", "АРА", None, "2026-04-18"),
-    ("Пахриддинұлы Хайриддин", "АРА", None, "2026-04-10"),
-    ("Рагчааулы Ерболат", "АРА", None, None),
-    ("Саду Аян", "АРА", None, None),
-    ("Сламия Әлішер Асанұлы", "АРА", None, "2026-05-10"),
-    ("Танаткан Бактияр Маратулы", "АРА", None, "2026-03-05"),
-    ("Хамраев Исак", "АРА", None, "2026-04-15"),
-    ("Шахметова Айжан Мараткызы", "АРА", None, None),
+    ("Абдукадыров Дониёр Абдукаримович", "Штатный", 5.0, None),
+    ("Алиев Сулейман Рутамович", "Штатный", 5.0, None),
+    ("Амарбеков Сухраб Султанмуратович", "Штатный", 5.0, None),
+    ("Аяпов Динмухамед Абуталипулы", "Штатный", 5.0, None),
+    ("Бегимбетов Арнур Абдикалиевич", "Штатный", 5.0, None),
+    ("Валиев Шахмурат Аркинжанович", "Штатный", 5.0, None),
+    ("Диханбай Кайрат Қуанышұлы", "Штатный", 5.0, None),
+    ("Дөңес Ерсұлтан Дөңесұлы", "Штатный", 5.0, None),
+    ("Әли Әділет Бактиярұлы", "Штатный", 5.0, None),
+    ("Еркетайұлы Ерсін", "Штатный", 5.0, None),
+    ("Ибодов Рахматулла", "Штатный", 5.0, None),
+    ("Исламов Хамиджан Нуриевич", "Штатный", 5.0, None),
+    ("Кадыров Ернұр Ерланұлы", "Штатный", 5.0, None),
+    ("Касымов Эдуард Маратович", "Штатный", 5.0, None),
+    ("Ким Игорь Юрьевич", "Штатный", 5.0, None),
+    ("Ким Денис Витальевич", "Штатный", 5.0, None),
+    ("Косанов Марат Гусманович", "Штатный", 5.0, None),
+    ("Мақсұт Темірлан Есенгелдіұлы", "Штатный", 5.0, None),
+    ("Мансуров Аслан Келисович", "Штатный", 5.0, None),
+    ("Махамбетов Мұқасан Нұрқас Уғли", "Штатный", 5.0, None),
+    ("Мухамеджан Нурбол Ахметиллаұлы", "Штатный", 5.0, None),
+    ("Нұрғожа Алмас Алмас", "Штатный", 5.0, None),
+    ("Пруглов Олег Витальевич", "Штатный", 5.0, None),
+    ("Рулёв Даниэль Владмирович", "Штатный", 5.0, None),
+    ("Садвахасов Қанат Шамбилұлы", "Штатный", 5.0, None),
+    ("Спанкулов Алдияр Замирович", "Штатный", 5.0, None),
+    ("Спатаев Талгат Каримович", "Штатный", 5.0, None),
+    ("Султанбеков Тимур Бахытұлы", "Штатный", 5.0, None),
+    ("Сунакбаева Жадыра Рахимжановна", "Штатный", 5.0, None),
+    ("Тілен Ержігіт Аманұлы", "Штатный", 5.0, None),
+    ("Тутешов Меңдібай Ғалымжанұлы", "Штатный", 5.0, None),
+    ("Тюлеев Рустам Оспанович", "Штатный", 5.0, None),
+    ("Феллер Вячеслав Анатольевич", "Штатный", 5.0, None),
+    ("Чокпаров Руслан Назымович", "Штатный", 5.0, None),
+    ("Шавкатов Агабей Юнусович", "Штатный", 5.0, None),
+    ("Эрканбаев Сардор Артыкалиевич", "Штатный", 5.0, None),
+    ("Айдаров Дильшат Равхатович", "Тариф1", 2.0, None),
+    ("Алмасұлы Медеу Медеу", "Тариф1", 2.0, None),
+    ("Джаксыбаев Ерлан Курмангазыевич", "Тариф1", 2.0, None),
+    ("Джапарханов Таш Дылшатович", "Тариф1", 2.0, None),
+    ("Досмамбетов Азат Кайратович", "Тариф1", 2.0, None),
+    ("Мауыт Даниал Ержанұлы", "Тариф1", 2.0, None),
+    ("Рахимгалиев Салимгерей Галимжанович", "Тариф1", 2.0, None),
+    ("Айтжанов Мирас Бахтиярұлы", "АРА", None, "2026-01-05"),
+    ("Алпысбаева Динара Агибаевна", "АРА", None, "2026-01-13"),
+    ("Ганиев Ринат Шамильевич", "АРА", None, "2026-01-23"),
+    ("Егоров Фархат Александрович", "АРА", None, "2026-02-03"),
+    ("Жалгасбаев Алтынбек Жетилдикулы", "АРА", None, "2026-04-05"),
+    ("Жұмағұл Мәдияр Жақсыбайұлы", "АРА", None, "2026-05-26"),
+    ("Жумахан Сержан Бақтығалиұлы", "АРА", None, "2026-02-20"),
+    ("Исаба Дамир Серiкулы", "АРА", None, "2026-05-17"),
+    ("Қадырұлы Арман Арман", "АРА", None, "2025-11-23"),
+    ("Капар Ернур Ерболулы", "АРА", None, "2026-04-11"),
+    ("Қасымбеков Серік Мұхаметұлы", "АРА", None, "2026-03-07"),
+    ("Колыхалова Кристина Владимировна", "АРА", None, "2026-03-18"),
+    ("Қыдырәлі Дінмұхамбет Манасулы", "АРА", None, "2026-04-23"),
+    ("Мухамметхали Әли Жексенбайұлы", "АРА", None, "2026-03-27"),
+    ("Мырзахметов Медет Прiмбетулы", "АРА", None, "2026-04-28"),
+    ("Өзгелді Нұрсәулет Ғаниұлы", "АРА", None, "2026-03-18"),
+    ("Пак Андрей Афанасьевич", "АРА", None, "2026-04-28"),
+    ("Рауфов Даниял", "АРА", None, None),
+    ("Серікбай Айдын Серікбайұлы", "АРА", None, "2025-11-21"),
+    ("Сулейманов Рамиль Абдухахарович", "АРА", None, "2026-04-29"),
+    ("Хамитов Ерасыл Серiкулы", "АРА", None, None),
+    ("Шатаев Шохан Аубакирович", "АРА", None, "2026-05-26"),
 ]
 
 TARIFF_SHEET_NAME = "Тарифы"
@@ -973,7 +988,7 @@ def get_month_totals_from_sheets(day_date, tariffs: dict = None) -> tuple:
         return 0, 0.0, 0.0
 
 
-def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0, tariffs: Optional[Dict[str, dict]] = None, month_park_income: float = 0.0) -> str:
+def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: int = 0, month_net: float = 0.0, tariffs: Optional[Dict[str, dict]] = None, month_park_income: float = 0.0, real_park_income: float = 0.0) -> str:
     import datetime as dt_mod
     total_orders = sum(a.done for a in agg.values())
     total_net = sum(a.net for a in agg.values())
@@ -982,9 +997,12 @@ def format_quick_summary(day_str: str, agg: Dict[str, DriverAgg], month_orders: 
             report_date = dt_mod.date.fromisoformat(day_str)
         except Exception:
             report_date = dt_mod.date.today()
-        park_income = calc_park_income_individual(agg, tariffs, report_date)
+        park_income_calc = calc_park_income_individual(agg, tariffs, report_date)
     else:
-        park_income = total_net * (PARK_COMMISSION_PERCENT / 100)
+        park_income_calc = total_net * (PARK_COMMISSION_PERCENT / 100)
+
+    # Показываем реальную комиссию из API если есть, иначе расчётную
+    park_income = real_park_income if real_park_income > 0 else park_income_calc
     avg_check = round(total_net / total_orders, 2) if total_orders else 0.0
 
     # топы
@@ -1072,6 +1090,13 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
         except Exception as e:
             log.warning("fetch_driver_balances failed: %s", e)
             balances = {}
+        # Получаем реальную комиссию партнёра из Яндекс API
+        try:
+            order_ids = [o.get("id") for o in orders if o.get("id")]
+            real_park_income = fetch_partner_commission(session, order_ids)
+        except Exception as e:
+            log.warning("fetch_partner_commission failed: %s", e)
+            real_park_income = 0.0
 
     try:
         directory = load_driver_directory()
@@ -1102,7 +1127,7 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
     tariffs = await asyncio.to_thread(load_tariffs)
     month_orders, month_net, month_park_income = await asyncio.to_thread(get_month_totals_from_sheets, day_date, tariffs)
 
-    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs, month_park_income) + warn, parse_mode=ParseMode.HTML)
+    await bot.send_message(chat_id=send_to_chat_id, text=format_quick_summary(day_str, agg, month_orders, month_net, tariffs, month_park_income, real_park_income) + warn, parse_mode=ParseMode.HTML)
     with open(csv_path, "rb") as f:
         await bot.send_document(chat_id=send_to_chat_id, document=f, caption=f"CSV за {day_str}")
 
@@ -1349,90 +1374,44 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=MAIN_KEYBOARD)
 
 
-async def cmd_testtransactions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Тестирует API транзакций Яндекс Fleet для получения комиссии партнера."""
-    import asyncio
-    await update.message.reply_text("⏳ Тестирую API транзакций...")
+def fetch_partner_commission(session: requests.Session, order_ids: List[str]) -> float:
+    """
+    Получает реальную комиссию партнёра (доход парка) из Yandex Fleet API
+    по списку ID заказов через category_id = 'partner_ride_fee'.
+    Возвращает сумму (положительное число).
+    """
+    if not order_ids:
+        return 0.0
 
-    def _test():
-        import datetime as dt_mod
-        results = []
-        order_ids = []
-
-        with requests.Session() as session:
-            # Шаг 1: получаем реальные ID заказов
-            try:
-                DUBAI_TZ_local = __import__('zoneinfo').ZoneInfo("Asia/Dubai")
-                start_dt = dt_mod.datetime(2026, 6, 22, 0, 0, 0, tzinfo=DUBAI_TZ_local)
-                end_dt = dt_mod.datetime(2026, 6, 22, 23, 59, 59, tzinfo=DUBAI_TZ_local)
-                payload_orders = {
-                    "limit": 10,
-                    "query": {
-                        "park": {
-                            "id": PARK_ID,
-                            "order": {
-                                "booked_at": {"from": start_dt.isoformat(), "to": end_dt.isoformat()},
-                            },
-                        }
-                    },
-                    "fields": {"order": ["id", "status"]},
+    total = 0.0
+    # Обрабатываем по 100 заказов за раз (лимит API)
+    chunk_size = 100
+    for i in range(0, len(order_ids), chunk_size):
+        chunk = order_ids[i:i + chunk_size]
+        payload = {
+            "query": {
+                "park": {
+                    "id": PARK_ID,
+                    "order": {"ids": chunk}
                 }
-                r_orders = session.post(
-                    "https://fleet-api.taxi.yandex.net/v1/parks/orders/list",
-                    headers=fleet_headers(), json=payload_orders, timeout=15
-                )
-                if r_orders.status_code == 200:
-                    items = r_orders.json().get("orders") or []
-                    order_ids = [o.get("id") for o in items if o.get("id")][:10]
-            except Exception as e:
-                results.append(f"orders/list error: {e}")
+            },
+            "limit": 500
+        }
+        try:
+            r = post_with_retry(session, "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list", payload)
+            if r and r.status_code == 200:
+                txs = r.json().get("transactions", [])
+                for tx in txs:
+                    if tx.get("category_id") == "partner_ride_fee":
+                        try:
+                            total += abs(float(tx.get("amount", 0)))
+                        except Exception:
+                            pass
+            time.sleep(0.2)
+        except Exception as e:
+            log.warning("fetch_partner_commission error: %s", e)
 
-            # Шаг 2: получаем все транзакции и смотрим категории
-            if order_ids:
-                try:
-                    payload_tx = {
-                        "query": {
-                            "park": {
-                                "id": PARK_ID,
-                                "order": {"ids": order_ids}
-                            }
-                        },
-                        "limit": 500
-                    }
-                    r_tx = session.post(
-                        "https://fleet-api.taxi.yandex.net/v2/parks/orders/transactions/list",
-                        headers=fleet_headers(), json=payload_tx, timeout=15
-                    )
-                    if r_tx.status_code == 200:
-                        txs = r_tx.json().get("transactions", [])
-                        # Собираем все уникальные категории с примерами сумм
-                        categories = {}
-                        for tx in txs:
-                            cat_id = tx.get("category_id", "")
-                            cat_name = tx.get("category_name", "")
-                            amount = tx.get("amount", "0")
-                            if cat_id not in categories:
-                                categories[cat_id] = {"name": cat_name, "amounts": []}
-                            categories[cat_id]["amounts"].append(float(amount))
-
-                        lines = [f"Всего транзакций: {len(txs)}\nКатегории:\n"]
-                        for cat_id, data in categories.items():
-                            total = sum(data["amounts"])
-                            lines.append(f"• {cat_id} ({data['name']}): {total:,.2f}")
-                        results.append("\n".join(lines))
-                    else:
-                        results.append(f"transactions: {r_tx.status_code} {r_tx.text[:300]}")
-                except Exception as e:
-                    results.append(f"transactions ERROR: {e}")
-
-        return results
-
-    try:
-        results = await asyncio.to_thread(_test)
-        for res in results:
-            await update.message.reply_text(res[:4000])
-    except Exception as e:
-        await update.message.reply_text(f"⚠ Ошибка: {e}")
+    return total
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1955,7 +1934,6 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("testtransactions", cmd_testtransactions))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
