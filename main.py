@@ -1085,21 +1085,15 @@ async def _send_report_for_date(day_date, send_to_chat_id: int, bot):
 
     with requests.Session() as session:
         orders = orders_list_all(session, time_from, time_to, from_dt, to_dt)
-        # Для транзакций берём чуть расширенное окно (±2ч) чтобы захватить граничные заказы
-        import datetime as dt_mod
-        tx_from = (from_dt - timedelta(hours=2)).isoformat()
-        tx_to = (to_dt + timedelta(hours=2)).isoformat()
-        # Собираем ID всех заказов за расширенный период
-        extra_orders = orders_list_all(session, tx_from, tx_to, from_dt - timedelta(hours=2), to_dt + timedelta(hours=2))
-        all_order_ids = list({o.get("id") for o in (orders + extra_orders) if o.get("id")})
         try:
             balances = fetch_driver_balances(session)
         except Exception as e:
             log.warning("fetch_driver_balances failed: %s", e)
             balances = {}
-        # Получаем реальную комиссию партнёра из Яндекс API с фильтром по event_at
+        # Получаем реальную комиссию партнёра из Яндекс API
         try:
-            real_park_income = fetch_partner_commission(session, all_order_ids, time_from, time_to)
+            order_ids = [o.get("id") for o in orders if o.get("id")]
+            real_park_income = fetch_partner_commission(session, order_ids, time_from, time_to)
         except Exception as e:
             log.warning("fetch_partner_commission failed: %s", e)
             real_park_income = 0.0
