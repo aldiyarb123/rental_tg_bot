@@ -155,9 +155,15 @@ def iso_dubai(dt: datetime) -> str:
     return dt.astimezone(DUBAI_TZ).isoformat()
 
 def dubai_day_range(day_date) -> Tuple[str, str, datetime, datetime]:
+    # Для запроса к API берём расширенное окно (с 20:00 предыдущего дня до 04:00 следующего)
+    # чтобы захватить все заказы которые завершились в этот день
+    # Фактический диапазон дня (по ended_at) остаётся 00:00-23:59
     start_dt = datetime(day_date.year, day_date.month, day_date.day, 0, 0, 0, tzinfo=DUBAI_TZ)
     end_dt   = datetime(day_date.year, day_date.month, day_date.day, 23, 59, 59, tzinfo=DUBAI_TZ)
-    return iso_dubai(start_dt), iso_dubai(end_dt), start_dt, end_dt
+    # Для API запроса — расширяем на 4 часа в каждую сторону
+    api_start = start_dt - timedelta(hours=4)
+    api_end   = end_dt + timedelta(hours=4)
+    return iso_dubai(api_start), iso_dubai(api_end), start_dt, end_dt
 
 def extract_booked_at(order: dict) -> Optional[str]:
     # В разных ответах бывает order.booked_at или прямо booked_at
@@ -187,8 +193,8 @@ def normalize_status(o: dict) -> str:
 
 
 def extract_effective_dt(order: dict) -> Optional[datetime]:
-    """Для завершённых заказов используем ended_at как более точный критерий попадания в день.
-    Если ended_at нет — падаем обратно на booked_at.
+    """Используем ended_at как критерий попадания заказа в день.
+    Это соответствует логике Fleet — транзакция проводится когда заказ завершён.
     """
     ended_at = order.get("ended_at")
     if isinstance(order.get("order"), dict):
@@ -197,7 +203,7 @@ def extract_effective_dt(order: dict) -> Optional[datetime]:
         dt = parse_dt(ended_at)
         if dt is not None:
             return dt
-
+    # Fallback на booked_at только если ended_at нет
     booked_at = extract_booked_at(order)
     if booked_at:
         return parse_dt(booked_at)
@@ -2059,7 +2065,6 @@ def build_app() -> Application:
     app = Application.builder().token(BOT_TOKEN).post_init(setup_bot_commands).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("testtx3", cmd_testtx3))
     app.add_handler(CommandHandler("settariff", cmd_settariff))
     app.add_handler(CommandHandler("setara", cmd_setara))
     app.add_handler(CommandHandler("tariffs", cmd_tariffs))
